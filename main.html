@@ -537,7 +537,7 @@
             }
         });
 
-        // 거래 내역 삭제 함수
+        // 거래 내역 삭제 함수 (merge 없이 전체 객체 강제 동기화 반영)
         window.deleteTransaction = async function(index) {
             if (confirm('이 내역을 삭제하시겠습니까?')) {
                 try {
@@ -547,9 +547,13 @@
                     }
 
                     const userDocRef = doc(db, "users", currentUsername);
-                    await setDoc(userDocRef, { 거래내역: userData.거래내역 }, { merge: true });
+                    // merge를 쓰지 않고 전체 거래내역 객체를 정확히 업데이트하여 잔여 캐시 방지
+                    await setDoc(userDocRef, { 
+                        거래내역: userData.거래내역 
+                    }, { merge: false });
                     
                     renderDayTransactions();
+                    renderCalendarAndSummary();
                 } catch (error) {
                     alert('삭제 실패: ' + error.message);
                 }
