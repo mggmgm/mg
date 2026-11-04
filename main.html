@@ -30,7 +30,7 @@
         </div>
     </div>
 
-    <!-- 메인 콘텐츠 레이아웃 (좌측: 캘린더 및 요약/리스트, 우측: 메모장) -->
+    <!-- 메인 콘텐츠 레이아웃 (좌측: 캘린더 및 요약/리스트, 우측: 메모) -->
     <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
         
         <!-- 1번 영역: 캘린더, 요약 통계 및 토스 스타일 월별 내역 (2칸 차지) -->
@@ -92,10 +92,10 @@
             </div>
         </div>
 
-        <!-- 2번 영역: 메모장 게시판 (1칸 차지) -->
+        <!-- 2번 영역: 메모 게시판 (1칸 차지) -->
         <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md flex flex-col justify-between">
             <div class="flex flex-col h-full">
-                <h2 class="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4 flex items-center">📝 메모장 게시판</h2>
+                <h2 class="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4 flex items-center">📝 메모</h2>
                 
                 <div class="mb-3">
                     <textarea id="memoInput" placeholder="기록할 내용을 입력하세요..." class="w-full border rounded-lg p-2 text-sm focus:outline-blue-500 resize-none h-24"></textarea>
@@ -537,7 +537,7 @@
             }
         });
 
-        // 거래 내역 삭제 함수 (merge 없이 전체 객체 강제 동기화 반영)
+        // 거래 내역 삭제 함수
         window.deleteTransaction = async function(index) {
             if (confirm('이 내역을 삭제하시겠습니까?')) {
                 try {
@@ -547,7 +547,6 @@
                     }
 
                     const userDocRef = doc(db, "users", currentUsername);
-                    // merge를 쓰지 않고 전체 거래내역 객체를 정확히 업데이트하여 잔여 캐시 방지
                     await setDoc(userDocRef, { 
                         거래내역: userData.거래내역 
                     }, { merge: false });
@@ -560,7 +559,7 @@
             }
         };
 
-        // 3. 메모장 기능
+        // 3. 메모 기능
         async function loadMemos() {
             const memoListEl = document.getElementById('memoList');
             memoListEl.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">불러오는 중...</p>';
