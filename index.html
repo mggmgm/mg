@@ -41,42 +41,12 @@
             appId: "1:206404405257:web:c30800f894773eb237d0d8"
         };
 
-        // Firebase 시작
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // 회원가입 버튼을 눌렀을 때
-        document.getElementById('signupBtn').addEventListener('click', async () => {
-            const rawId = document.getElementById('username').value.trim();
-            const rawPassword = document.getElementById('password').value;
-
-            if (!rawId || !rawPassword) {
-                alert('아이디와 비밀번호를 입력해주세요!');
-                return;
-            }
-
-            const email = rawId + '@mg.com';
-            const password = rawPassword.length < 6 ? rawPassword + 'mgpass' : rawPassword;
-
-            try {
-                await createUserWithEmailAndPassword(auth, email, password);
-
-                // 데이터베이스에 유저 이름(rawId)을 문서 ID로 하여 빈 거래내역 구조 생성
-                await setDoc(doc(db, "users", rawId), {
-                    username: rawId,
-                    거래내역: {}
-                });
-
-                alert('회원가입이 완료되었습니다!');
-                location.href = 'main.html';
-            } catch (error) {
-                alert('회원가입 실패: ' + error.message);
-            }
-        });
-
-        // 로그인 버튼을 눌렀을 때
-        document.getElementById('loginBtn').addEventListener('click', async () => {
+        // 공통 로그인 실행 함수
+        async function executeLogin() {
             const rawId = document.getElementById('username').value.trim();
             const rawPassword = document.getElementById('password').value;
 
@@ -94,6 +64,52 @@
                 location.href = 'main.html';
             } catch (error) {
                 alert('로그인 실패: 아이디나 비밀번호를 확인해주세요.');
+            }
+        }
+
+        // 로그인 버튼 클릭 시
+        document.getElementById('loginBtn').addEventListener('click', executeLogin);
+
+        // ★ 아이디 또는 비밀번호 입력창에서 엔터키를 누를 때 로그인 실행
+        document.getElementById('username').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                executeLogin();
+            }
+        });
+
+        document.getElementById('password').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                executeLogin();
+            }
+        });
+
+        // 회원가입 버튼 클릭 시
+        document.getElementById('signupBtn').addEventListener('click', async () => {
+            const rawId = document.getElementById('username').value.trim();
+            const rawPassword = document.getElementById('password').value;
+
+            if (!rawId || !rawPassword) {
+                alert('아이디와 비밀번호를 입력해주세요!');
+                return;
+            }
+
+            const email = rawId + '@mg.com';
+            const password = rawPassword.length < 6 ? rawPassword + 'mgpass' : rawPassword;
+
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+
+                await setDoc(doc(db, "users", rawId), {
+                    username: rawId,
+                    거래내역: {}
+                });
+
+                alert('회원가입이 완료되었습니다!');
+                location.href = 'main.html';
+            } catch (error) {
+                alert('회원가입 실패: ' + error.message);
             }
         });
     </script>
