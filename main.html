@@ -92,7 +92,7 @@
             </div>
         </div>
 
-        <!-- 2번 영역: 메모 게시판 (1칸 차지) -->
+        <!-- 2번 영역: 메모 (1칸 차지) -->
         <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md flex flex-col justify-between">
             <div class="flex flex-col h-full">
                 <h2 class="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4 flex items-center">📝 메모</h2>
@@ -158,7 +158,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // 넷리파이 배지 강제 삭제 실행 스크립트
         window.addEventListener('DOMContentLoaded', () => {
@@ -194,7 +194,7 @@
         let currentUsername = "";
         let currentDate = new Date(2026, 10, 1); // 기본 2026년 11월
         let selectedDateStr = "";
-        let userData = { 거래내역: {} };
+        let userData = { 거래내역: {}, 메모: [] };
 
         // 금액 입력 시 자동 콤마 및 마이너스 포맷팅
         const modalAmountInput = document.getElementById('modalAmount');
@@ -218,7 +218,6 @@
                 currentUsername = user.email ? user.email.split('@')[0] : 'user';
                 
                 await loadUserDataAndRender();
-                loadMemos();
             } else {
                 alert('로그인이 필요합니다.');
                 location.href = 'index.html';
@@ -244,19 +243,22 @@
 
                 if (userDoc.exists()) {
                     userData = userDoc.data();
+                    if (!userData.거래내역) userData.거래내역 = {};
+                    if (!userData.메모) userData.메모 = [];
                 } else {
-                    userData = { 거래내역: {} };
+                    userData = { 거래내역: {}, 메모: [] };
                     await setDoc(userDocRef, userData, { merge: true });
                 }
 
                 document.getElementById('userWelcome').innerText = `${currentUsername}님 환영합니다!`;
             } catch (error) {
                 console.error("데이터 로드 실패:", error);
-                userData = { 거래내역: {} };
+                userData = { 거래내역: {}, 메모: [] };
                 document.getElementById('userWelcome').innerText = `${currentUsername}님 환영합니다!`;
             }
 
             renderCalendarAndSummary();
+            renderMemos();
         }
 
         // 달력 및 요약 통계 렌더링
@@ -559,36 +561,28 @@
             }
         };
 
-        // 3. 메모 기능
-        async function loadMemos() {
+        // 3. 메모 기능 (한글 필드 동기화 방식)
+        function renderMemos() {
             const memoListEl = document.getElementById('memoList');
-            memoListEl.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">불러오는 중...</p>';
+            memoListEl.innerHTML = '';
 
-            try {
-                const q = query(collection(db, "users", currentUsername, "memos"), orderBy("작성일", "desc"));
-                const querySnapshot = await getDocs(q);
+            if (!userData.메모) userData.메모 = [];
 
-                memoListEl.innerHTML = '';
-                if (querySnapshot.empty) {
-                    memoListEl.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">저장된 메모가 없습니다.</p>';
-                    return;
-                }
-
-                querySnapshot.forEach((documentSnapshot) => {
-                    const memoData = documentSnapshot.data();
-                    const memoId = documentSnapshot.id;
-
-                    const item = document.createElement('div');
-                    item.className = "bg-gray-50 p-2.5 rounded-xl border flex justify-between items-start text-sm shadow-sm";
-                    item.innerHTML = `
-                        <span class="text-gray-700 whitespace-pre-wrap break-all pr-2">${escapeHtml(memoData.내용 || '')}</span>
-                        <button onclick="deleteMemo('${memoId}')" class="text-red-400 hover:text-red-600 text-xs font-bold px-1">✕</button>
-                    `;
-                    memoListEl.appendChild(item);
-                });
-            } catch (error) {
-                console.error("메모 로드 에러:", error);
+            if (userData.메모.length === 0) {
+                memoListEl.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">저장된 메모가 없습니다.</p>';
+                return;
             }
+
+            // 최신순으로 보여주기 위해 역순 출력
+            userData.메모.forEach((memoText, index) => {
+                const item = document.createElement('div');
+                item.className = "bg-gray-50 p-2.5 rounded-xl border flex justify-between items-start text-sm shadow-sm";
+                item.innerHTML = `
+                    <span class="text-gray-700 whitespace-pre-wrap break-all pr-2">${escapeHtml(memoText)}</span>
+                    <button onclick="deleteMemo(${index})" class="text-red-400 hover:text-red-600 text-xs font-bold px-1">✕</button>
+                `;
+                memoListEl.appendChild(item);
+            });
         }
 
         document.getElementById('addMemoBtn').addEventListener('click', async () => {
@@ -598,23 +592,29 @@
                 return;
             }
 
+            if (!userData.메모) userData.메모 = [];
+            userData.메모.unshift(text); // 최신 메모가 위로 오도록 추가
+
             try {
-                await addDoc(collection(db, "users", currentUsername, "memos"), {
-                    내용: text,
-                    작성일: serverTimestamp()
-                });
+                const userDocRef = doc(db, "users", currentUsername);
+                await setDoc(userDocRef, { 메모: userData.메모 }, { merge: true });
+
                 document.getElementById('memoInput').value = '';
-                loadMemos();
+                renderMemos();
             } catch (error) {
                 alert('메모 등록 실패: ' + error.message);
             }
         });
 
-        window.deleteMemo = async function(memoId) {
+        window.deleteMemo = async function(index) {
             if (confirm('이 메모를 삭제하시겠습니까?')) {
                 try {
-                    await deleteDoc(doc(db, "users", currentUsername, "memos", memoId));
-                    loadMemos();
+                    userData.메모.splice(index, 1);
+
+                    const userDocRef = doc(db, "users", currentUsername);
+                    await setDoc(userDocRef, { 메모: userData.메모 }, { merge: false });
+
+                    renderMemos();
                 } catch (error) {
                     alert('메모 삭제 실패: ' + error.message);
                 }
