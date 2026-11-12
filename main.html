@@ -20,7 +20,7 @@
 </head>
 <body class="bg-gray-100 min-h-screen p-2 sm:p-6 flex flex-col items-center">
 
-<!-- 상단 헤더 -->
+    <!-- 상단 헤더 -->
     <div class="w-full max-w-6xl bg-white p-3 sm:p-5 rounded-lg shadow-md mb-3 sm:mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
         <div>
             <h1 class="text-lg sm:text-2xl font-bold text-gray-800">📅 캘린더 가계부 & 대시보드</h1>
@@ -48,17 +48,17 @@
         </div>
     </div>
 
-    <!-- 🤖 텔레그램 연동 상태 카드 -->
-    <div class="w-full max-w-6xl bg-blue-50 border border-blue-200 p-3 sm:p-4 rounded-lg shadow-md mb-4 sm:mb-6 flex flex-col sm:flex-row justify-between items-center gap-3">
-        <div class="flex items-center space-x-3">
-            <span class="text-2xl">🤖</span>
-            <div>
-                <h3 class="text-xs sm:text-sm font-bold text-blue-900">텔레그램 출금 예정 알림 연동</h3>
-                <p id="telegramStatusText" class="text-[11px] sm:text-xs text-blue-700">상태 확인 중...</p>
+    <!-- 🤖 텔레그램 연동 상태 카드 (모바일 한 줄 정렬 최적화) -->
+    <div class="w-full max-w-6xl bg-blue-50 border border-blue-200 p-3 sm:p-4 rounded-lg shadow-md mb-4 sm:mb-6 flex flex-row justify-between items-center gap-2">
+        <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
+            <span class="text-xl sm:text-2xl shrink-0">🤖</span>
+            <div class="min-w-0">
+                <h3 class="text-xs sm:text-sm font-bold text-blue-900 truncate">텔레그램 출금 예정 알림 연동</h3>
+                <p id="telegramStatusText" class="text-[10px] sm:text-xs text-blue-700 truncate">상태 확인 중...</p>
             </div>
         </div>
-        <div class="flex items-center space-x-2 w-full sm:w-auto justify-end">
-            <button id="telegramLinkBtn" class="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition text-xs font-medium shadow">
+        <div class="flex items-center shrink-0">
+            <button id="telegramLinkBtn" class="bg-blue-600 text-white px-2.5 py-1.5 sm:px-3 rounded-lg hover:bg-blue-700 transition text-[11px] sm:text-xs font-medium shadow whitespace-nowrap">
                 텔레그램 연동하기
             </button>
         </div>
@@ -296,7 +296,7 @@
             renderMemos();
         }
 
-        // 🤖 텔레그램 연동 UI 업데이트 함수
+        // 🤖 텔레그램 연동 UI 업데이트 함수 (모바일 한 줄 정렬 유지)
         function updateTelegramUI() {
             const statusEl = document.getElementById('telegramStatusText');
             const btnEl = document.getElementById('telegramLinkBtn');
@@ -304,15 +304,15 @@
             if (userData.telegram && userData.telegram.chatId) {
                 statusEl.innerHTML = `상태: <span class="font-bold text-green-700">연동 완료 (알림 수신 중)</span>`;
                 btnEl.innerText = "연동 해제";
-                btnEl.className = "bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition text-xs font-medium shadow";
+                btnEl.className = "bg-red-500 text-white px-2.5 py-1.5 sm:px-3 rounded-lg hover:bg-red-600 transition text-[11px] sm:text-xs font-medium shadow whitespace-nowrap";
             } else if (userData.telegram && userData.telegram.authCode) {
-                statusEl.innerHTML = `상태: 인증 대기 중 (코드: <span class="font-bold text-orange-600">${userData.telegram.authCode}</span>)`;
+                statusEl.innerHTML = `대기 중 (코드: <span class="font-bold text-orange-600">${userData.telegram.authCode}</span>)`;
                 btnEl.innerText = "연동 코드 재확인";
-                btnEl.className = "bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 transition text-xs font-medium shadow";
+                btnEl.className = "bg-orange-500 text-white px-2.5 py-1.5 sm:px-3 rounded-lg hover:bg-orange-600 transition text-[11px] sm:text-xs font-medium shadow whitespace-nowrap";
             } else {
-                statusEl.innerHTML = `상태: <span class="text-gray-500">미연동 (알림을 받으려면 연동하세요)</span>`;
+                statusEl.innerHTML = `상태: <span class="text-gray-500">미연동 (알림 받기 연동 필요)</span>`;
                 btnEl.innerText = "텔레그램 연동하기";
-                btnEl.className = "bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition text-xs font-medium shadow";
+                btnEl.className = "bg-blue-600 text-white px-2.5 py-1.5 sm:px-3 rounded-lg hover:bg-blue-700 transition text-[11px] sm:text-xs font-medium shadow whitespace-nowrap";
             }
         }
 
