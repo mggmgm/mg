@@ -48,7 +48,7 @@
         </div>
     </div>
 
-    <!-- 🤖 텔레그램 연동 상태 카드 (신규 추가) -->
+    <!-- 🤖 텔레그램 연동 상태 카드 -->
     <div class="w-full max-w-6xl bg-blue-50 border border-blue-200 p-3 sm:p-4 rounded-lg shadow-md mb-4 sm:mb-6 flex flex-col sm:flex-row justify-between items-center gap-3">
         <div class="flex items-center space-x-3">
             <span class="text-2xl">🤖</span>
@@ -154,21 +154,18 @@
                 <button id="closeModalBtn" class="text-gray-400 hover:text-gray-600 font-bold text-lg px-2">✕</button>
             </div>
 
-            <!-- 항목 추가 입력폼 -->
+            <!-- 항목 추가 입력폼 (수입, 기타 지출, 예정 지출만 유지) -->
             <div class="bg-gray-50 p-3 rounded-xl mb-4 border space-y-2">
                 <div class="flex space-x-2">
                     <select id="modalCategory" class="border rounded-lg px-2 py-1.5 text-sm bg-white font-medium focus:outline-blue-500">
                         <option value="수입">수입 (+)</option>
-                        <option value="기름값">기름값 (-)</option>
-                        <option value="밥값">밥값 (-)</option>
-                        <option value="담배값">담배값 (-)</option>
                         <option value="기타 지출">기타 지출 (-)</option>
                         <option value="예정 지출">예정 지출 (-)</option>
                     </select>
                     <input type="text" id="modalAmount" placeholder="금액 입력" class="flex-grow border rounded-lg px-3 py-1.5 text-sm text-right focus:outline-blue-500">
                 </div>
                 <div>
-                    <input type="text" id="modalReason" placeholder="기타 사유 입력 (예: 오토바이 수리)" class="w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-blue-500 bg-white">
+                    <input type="text" id="modalReason" placeholder="기타 사유 입력 (예: 카드값 출금)" class="w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-blue-500 bg-white">
                 </div>
                 <button id="addTransactionBtn" class="w-full bg-indigo-500 text-white py-2 rounded-lg hover:bg-indigo-600 transition font-medium text-sm shadow">
                     내역 추가하기
@@ -193,6 +190,8 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const BOT_SERVER_URL = "https://telegram-wallet-bot-ht1m.onrender.com";
 
         // 넷리파이 배지 강제 삭제 실행 스크립트
         window.addEventListener('DOMContentLoaded', () => {
@@ -342,7 +341,7 @@
             const code = userData.telegram.authCode;
             updateTelegramUI();
 
-            alert(`[텔레그램 연동 안내]\n\n1. 텔레그램에서 공용 봇(예: @MyAccountingBot)을 검색해 들어가세요.\n2. 채팅창에 아래 명령어를 그대로 전송해주세요.\n\n/start ${code}\n\n인증이 완료되면 자동으로 알림을 받을 수 있게 됩니다!`);
+            alert(`[텔레그램 연동 안내]\n\n1. 텔레그램에서 봇(@walletmg_bot)을 검색해 들어가세요.\n2. 채팅창에 아래 명령어를 그대로 전송해주세요.\n\n/start ${code}\n\n인증이 완료되면 자동으로 알림을 받을 수 있게 됩니다!`);
         });
 
         // 달력 및 요약 통계 렌더링
@@ -567,14 +566,18 @@
                 }
 
                 const reasonText = t.기타사유 ? `<span class="text-xs text-gray-500 ml-2">(${t.기타사유})</span>` : '';
+                const confirmedBadge = (isPlanned && t.알림확인)
+                    ? `<span class="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold ml-1">확인됨</span>`
+                    : '';
 
                 const item = document.createElement('div');
                 item.className = "bg-white p-3 rounded-xl border flex justify-between items-center text-sm shadow-sm";
                 item.innerHTML = `
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-2 flex-wrap">
                         <span class="text-xs px-2 py-0.5 rounded-full font-bold ${badgeColor}">${t.분류}</span>
                         <span class="${amountColor}">${isPlanned ? '-' : ''}${Math.abs(amount).toLocaleString()} 원</span>
                         ${reasonText}
+                        ${confirmedBadge}
                     </div>
                     <button onclick="deleteTransaction(${index})" class="text-gray-400 hover:text-red-600 font-bold text-xs px-1">✕</button>
                 `;
@@ -606,14 +609,21 @@
             const formattedAmountStr = Math.abs(amount).toLocaleString();
 
             userData.거래내역[selectedDateStr].push({
+                id: String(Date.now()),
                 분류: category,
                 금액: formattedAmountStr,
-                기타사유: reason
+                기타사유: reason,
+                알림확인: false
             });
 
             try {
                 const userDocRef = doc(db, "users", currentUsername);
                 await setDoc(userDocRef, { 거래내역: userData.거래내역 }, { merge: true });
+
+                // '예정 지출' 추가 시 봇 서버에 즉시 동기화 요청
+                if (category === '예정 지출') {
+                    fetch(`${BOT_SERVER_URL}/sync`, { method: 'POST' }).catch(() => {});
+                }
                 
                 document.getElementById('modalAmount').value = '';
                 document.getElementById('modalReason').value = '';
@@ -627,6 +637,7 @@
         window.deleteTransaction = async function(index) {
             if (confirm('이 내역을 삭제하시겠습니까?')) {
                 try {
+                    const removedItem = userData.거래내역[selectedDateStr][index];
                     userData.거래내역[selectedDateStr].splice(index, 1);
                     if (userData.거래내역[selectedDateStr].length === 0) {
                         delete userData.거래내역[selectedDateStr];
@@ -636,6 +647,10 @@
                     await setDoc(userDocRef, { 
                         거래내역: userData.거래내역 
                     }, { merge: false });
+
+                    if (removedItem && removedItem.분류 === '예정 지출') {
+                        fetch(`${BOT_SERVER_URL}/sync`, { method: 'POST' }).catch(() => {});
+                    }
                     
                     renderDayTransactions();
                     renderCalendarAndSummary();
@@ -657,7 +672,6 @@
                 return;
             }
 
-            // 최신순으로 보여주기 위해 역순 출력
             userData.메모.forEach((memoText, index) => {
                 const item = document.createElement('div');
                 item.className = "bg-gray-50 p-2.5 rounded-xl border flex justify-between items-start text-sm shadow-sm";
@@ -677,7 +691,7 @@
             }
 
             if (!userData.메모) userData.메모 = [];
-            userData.메모.unshift(text); // 최신 메모가 위로 오도록 추가
+            userData.메모.unshift(text);
 
             try {
                 const userDocRef = doc(db, "users", currentUsername);
