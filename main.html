@@ -97,6 +97,35 @@
         </div>
     </div>
 
+    <!-- ⏰ 둥근 iOS 스타일 커스텀 알림 시각 선택 모달 -->
+    <div id="timePickerModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center hidden z-[70] p-4">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-xs p-5 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800">
+            <div class="flex justify-between items-center mb-3 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                <h3 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span>⏰</span> 알림 시각 선택
+                </h3>
+                <button type="button" id="closeTimePickerBtn" class="text-slate-400 hover:text-slate-600 font-bold px-1.5">✕</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 my-2">
+                <!-- 시 선택 -->
+                <div>
+                    <p class="text-[11px] font-bold text-slate-400 text-center mb-1.5">시 (Hour)</p>
+                    <div id="hourPickerList" class="h-44 overflow-y-auto space-y-1 pr-1 bg-slate-50 dark:bg-slate-800/70 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700"></div>
+                </div>
+                <!-- 분 선택 -->
+                <div>
+                    <p class="text-[11px] font-bold text-slate-400 text-center mb-1.5">분 (Minute)</p>
+                    <div id="minutePickerList" class="h-44 overflow-y-auto space-y-1 pr-1 bg-slate-50 dark:bg-slate-800/70 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700"></div>
+                </div>
+            </div>
+
+            <button type="button" id="confirmTimePickerBtn" class="w-full mt-3 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-2xl text-xs sm:text-sm font-extrabold transition shadow-sm">
+                선택 완료
+            </button>
+        </div>
+    </div>
+
     <!-- 상단 헤더 -->
     <header class="w-full max-w-5xl bg-white dark:bg-slate-900 p-3.5 sm:p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 mb-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-2.5">
         <div class="flex items-center justify-between w-full md:w-auto">
@@ -106,13 +135,10 @@
                 </h1>
                 <p id="userWelcome" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">사용자 정보를 불러오는 중...</p>
             </div>
-            <button id="headerLockBtn" class="hidden md:hidden bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-bold">
-                🔒 잠금
-            </button>
         </div>
 
         <div class="flex items-center justify-end gap-1.5 w-full md:w-auto overflow-x-auto whitespace-nowrap">
-            <button id="desktopLockBtn" class="hidden bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-2.5 py-1 rounded-xl text-[11px] font-bold transition">
+            <button id="headerLockBtn" class="hidden bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-2.5 py-1 rounded-xl text-[11px] font-bold transition">
                 🔒 잠금
             </button>
 
@@ -171,7 +197,7 @@
     </nav>
 
     <!-- ========================================== -->
-    <!-- 탭 1: 캘린더 영역                           -->
+    <!-- 탭 1: 캘린더 영역                            -->
     <!-- ========================================== -->
     <main id="tab-calendar" class="tab-section w-full max-w-5xl space-y-4">
         <div class="bg-white dark:bg-slate-900 p-3.5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
@@ -293,27 +319,40 @@
     </section>
 
     <!-- ========================================== -->
-    <!-- 탭 3: 타임스탬프 메모 영역                 -->
+    <!-- 탭 3: 메모 영역 (iOS 앱과 동일한 UI/문구)   -->
     <!-- ========================================== -->
-    <section id="tab-memo" class="tab-section hidden w-full max-w-5xl">
+    <section id="tab-memo" class="tab-section hidden w-full max-w-5xl space-y-4">
         <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <span>📝</span> 타임스탬프 메모장
+            <div class="flex justify-between items-center mb-3.5">
+                <h2 class="text-base sm:text-lg font-extrabold text-blue-600 dark:text-blue-400 flex items-center gap-1.5">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    <span>새 메모 기록</span>
                 </h2>
-                <span id="memoCountBadge" class="text-xs font-bold text-slate-500">총 0개</span>
+                <span id="memoCountBadge" class="text-xs font-bold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full">
+                    총 0개의 기록
+                </span>
             </div>
 
-            <div class="mb-4">
-                <textarea id="memoInput" placeholder="기록할 내용을 입력하세요... (작성 시각이 자동으로 기록됩니다)"
-                    class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none h-24"></textarea>
-                <button id="addMemoBtn" class="w-full bg-indigo-600 text-white py-2.5 rounded-xl hover:bg-indigo-700 transition font-bold text-sm shadow-sm mt-2">
-                    메모 등록하기
-                </button>
-            </div>
+            <div>
+                <textarea id="memoInput" placeholder="지출 계획, 카드 결제일, 기억할 일정을 자유롭게 남겨보세요..."
+                    class="w-full bg-slate-100/80 dark:bg-slate-800/90 border border-transparent focus:border-blue-400 rounded-2xl p-4 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 resize-none h-28 transition"></textarea>
 
-            <input type="text" id="memoSearchInput" placeholder="메모 내용 검색..."
-                class="w-full mb-3 px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <div class="flex items-center justify-between mt-3">
+                    <span id="memoCharCount" class="text-xs font-semibold text-slate-400">0자</span>
+                    <button id="addMemoBtn" class="bg-blue-300 hover:bg-blue-600 text-white px-5 py-2.5 rounded-2xl transition font-bold text-sm shadow-2xs flex items-center gap-1.5">
+                        <span class="text-base leading-none">+</span>
+                        <span>기록 저장</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 저장된 메모 목록 카드 -->
+        <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+            <input type="text" id="memoSearchInput" placeholder="저장된 메모 검색..."
+                class="w-full mb-3.5 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
 
             <div id="memoList" class="space-y-2.5 max-h-[450px] overflow-y-auto pr-1">
                 <p class="text-xs text-slate-400 text-center py-6">저장된 메모가 없습니다.</p>
@@ -391,38 +430,35 @@
                 </button>
             </div>
 
-            <!-- 일반 모드(테스트 모드 OFF)일 때 표시되는 알림 시점 & 알림 시각 설정 -->
+            <!-- 일반 모드(테스트 모드 OFF)일 때 표시되는 둥근 iOS 스타일 알림 시점 & 알림 시각 설정 -->
             <div id="normalScheduleSettings" class="bg-slate-50 dark:bg-slate-800/70 p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-700 space-y-3">
                 <div class="flex items-center justify-between gap-3">
                     <div>
                         <p class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">📅 알림 시점</p>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400">지출 예정일 며칠 전에 알림을 받을지 선택합니다</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">결제 전날 또는 당일 중 알림 받을 시점을 선택합니다</p>
                     </div>
-                    <select id="notifyDaysBeforeSelect" class="border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-xs sm:text-sm bg-white dark:bg-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="0">당일 (D-Day)</option>
-                        <option value="1" selected>1일 전</option>
-                        <option value="2">2일 전</option>
-                        <option value="3">3일 전</option>
-                    </select>
+                    <div class="relative inline-flex items-center shrink-0">
+                        <select id="notifyDaysBeforeSelect" class="appearance-none bg-transparent hover:bg-slate-200/70 dark:hover:bg-slate-700/70 text-slate-600 dark:text-slate-300 font-bold text-xs sm:text-sm pl-3 pr-7 py-1.5 rounded-xl cursor-pointer transition focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="1" selected>결제 전날</option>
+                            <option value="0">결제 당일</option>
+                        </select>
+                        <svg class="w-3.5 h-3.5 text-slate-400 pointer-events-none absolute right-2" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                        </svg>
+                    </div>
                 </div>
 
                 <div class="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-700">
                     <div>
                         <p class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">⏰ 알림 시각</p>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400">텔레그램 메시지가 발송될 시각을 선택합니다</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">원하는 알림 발송 시각을 직접 지정합니다</p>
                     </div>
-                    <select id="notifyHourSelect" class="border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-xs sm:text-sm bg-white dark:bg-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="0">오전 12:00 (00시)</option>
-                        <option value="7">오전 07:00</option>
-                        <option value="8">오전 08:00</option>
-                        <option value="9" selected>오전 09:00</option>
-                        <option value="10">오전 10:00</option>
-                        <option value="12">오후 12:00 (정오)</option>
-                        <option value="15">오후 03:00</option>
-                        <option value="18">오후 06:00</option>
-                        <option value="20">오후 08:00</option>
-                        <option value="21">오후 09:00</option>
-                    </select>
+                    <!-- 버튼 전체 영역 어디를 눌러도 둥근 커스텀 시간 선택창이 열림 -->
+                    <button type="button" id="notifyTimePickerBtn"
+                        class="bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300/80 dark:hover:bg-slate-600 active:scale-95 text-slate-900 dark:text-white font-extrabold text-xs sm:text-sm px-4 py-1.5 rounded-xl tracking-tight transition cursor-pointer shrink-0">
+                        09:00
+                    </button>
+                    <input type="hidden" id="notifyTimeInput" value="09:00">
                 </div>
             </div>
 
@@ -504,14 +540,14 @@
                     <button type="button" id="cancelEditBtn" class="hidden text-[11px] text-slate-500 hover:underline font-bold">수정 취소</button>
                 </div>
 
-                <div class="flex space-x-2">
-                    <select id="modalCategory" class="border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs sm:text-sm bg-white dark:bg-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <div class="flex items-center gap-2 w-full">
+                    <select id="modalCategory" class="shrink-0 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs sm:text-sm bg-white dark:bg-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="수입">수입 (+)</option>
                         <option value="기타 지출">기타 지출 (-)</option>
                         <option value="예정 지출">예정 지출 (-)</option>
                     </select>
                     <input type="text" id="modalAmount" inputmode="numeric" placeholder="금액 입력"
-                        class="flex-grow border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-right font-extrabold bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        class="flex-1 min-w-0 w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-right font-extrabold bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
 
                 <div class="flex flex-wrap gap-1.5">
@@ -525,7 +561,7 @@
 
                 <div>
                     <input type="text" id="modalReason" placeholder="사유 및 해시태그 (예: #식비 점심 식사)"
-                        class="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-900">
+                        class="w-full min-w-0 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-900">
                 </div>
 
                 <div class="flex flex-wrap gap-1">
@@ -654,6 +690,36 @@
         </div>
     </div>
 
+    <!-- ========================================== -->
+    <!-- 모달 5: 회원탈퇴 비밀번호 확인 모달          -->
+    <!-- ========================================== -->
+    <div id="withdrawModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-sm p-6 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800">
+            <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                <h3 class="text-base font-extrabold text-red-600 dark:text-red-400">⚠️ 회원탈퇴 확인</h3>
+                <button id="closeWithdrawModalBtn" class="text-slate-400 hover:text-slate-600 font-bold px-2">✕</button>
+            </div>
+            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-3.5">
+                탈퇴 시 모든 가계부 내역과 메모가 영구적으로 삭제되며 복구할 수 없습니다. 본인 확인을 위해 <strong class="text-slate-700 dark:text-slate-200">계정 비밀번호</strong>를 입력해주세요.
+            </p>
+            <div class="space-y-2.5">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">계정 비밀번호</label>
+                    <input type="password" id="withdrawPasswordInput" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500" placeholder="비밀번호를 입력하세요">
+                </div>
+                <p id="withdrawErrorMsg" class="hidden text-xs text-red-500 font-semibold px-0.5"></p>
+                <div class="flex gap-2 pt-2">
+                    <button type="button" id="cancelWithdrawBtn" class="flex-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 py-2.5 rounded-xl text-xs font-bold transition">
+                        취소
+                    </button>
+                    <button type="button" id="confirmWithdrawBtn" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-xl text-xs font-bold transition shadow-sm">
+                        즉시 회원탈퇴
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase 및 대시보드 스크립트 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -701,7 +767,7 @@
             거래내역: {},
             메모: [],
             telegram: null,
-            notificationSettings: { testMode: false, daysBefore: 1, notifyHour: 9 }
+            notificationSettings: { testMode: false, daysBefore: 1, notifyHour: 9, notifyTime: "09:00" }
         };
         let unsubscribeUserDoc = null;
         let upcomingAlertShownThisSession = false;
@@ -761,7 +827,7 @@
         }
 
         // ==========================================
-        // 0. 테마, 잠금 화면, 테스트 모드 & 시점·시각 설정
+        // 0. 테마, 잠금 화면, 커스텀 둥근 시간 피커 & 알림 설정
         // ==========================================
         const darkModeToggle = document.getElementById('darkModeToggle');
         if (localStorage.getItem('mg_theme') === 'dark') {
@@ -798,15 +864,107 @@
         // 테스트 모드 & 알림 시점/시각 UI 동기화 및 Firestore 저장
         const testModeToggle = document.getElementById('testModeToggle');
         const notifyDaysBeforeSelect = document.getElementById('notifyDaysBeforeSelect');
-        const notifyHourSelect = document.getElementById('notifyHourSelect');
+        const notifyTimeInput = document.getElementById('notifyTimeInput');
+        const notifyTimePickerBtn = document.getElementById('notifyTimePickerBtn');
+
+        // 둥근 커스텀 시/분 선택 모달 초기화
+        let tempSelectedHour = "09";
+        let tempSelectedMinute = "00";
+
+        function renderTimePickerLists() {
+            const hourList = document.getElementById('hourPickerList');
+            const minuteList = document.getElementById('minutePickerList');
+            hourList.innerHTML = '';
+            minuteList.innerHTML = '';
+
+            for (let h = 0; h < 24; h++) {
+                const hStr = String(h).padStart(2, '0');
+                const isSelected = hStr === tempSelectedHour;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.dataset.val = hStr;
+                btn.className = isSelected
+                    ? "w-full py-2 rounded-xl bg-indigo-600 text-white font-extrabold text-sm shadow-2xs transition"
+                    : "w-full py-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 font-bold text-sm transition";
+                btn.innerText = `${hStr}시`;
+                btn.addEventListener('click', () => {
+                    tempSelectedHour = hStr;
+                    renderTimePickerLists();
+                });
+                hourList.appendChild(btn);
+            }
+
+            for (let m = 0; m < 60; m += 5) {
+                const mStr = String(m).padStart(2, '0');
+                const isSelected = mStr === tempSelectedMinute;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.dataset.val = mStr;
+                btn.className = isSelected
+                    ? "w-full py-2 rounded-xl bg-indigo-600 text-white font-extrabold text-sm shadow-2xs transition"
+                    : "w-full py-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 font-bold text-sm transition";
+                btn.innerText = `${mStr}분`;
+                btn.addEventListener('click', () => {
+                    tempSelectedMinute = mStr;
+                    renderTimePickerLists();
+                });
+                minuteList.appendChild(btn);
+            }
+        }
+
+        // '09:00' 버튼의 어느 부분을 클릭해도 둥근 커스텀 피커 모달 오픈
+        notifyTimePickerBtn.addEventListener('click', () => {
+            const currentVal = notifyTimeInput.value || "09:00";
+            const [hPart, mPart] = currentVal.split(':');
+            tempSelectedHour = (hPart || "09").padStart(2, '0');
+            const mNum = Math.floor((Number(mPart) || 0) / 5) * 5;
+            tempSelectedMinute = String(mNum).padStart(2, '0');
+
+            renderTimePickerLists();
+            document.getElementById('timePickerModal').classList.remove('hidden');
+
+            // 선택된 항목 위치로 스크롤
+            setTimeout(() => {
+                const activeHour = document.querySelector(`#hourPickerList button[data-val="${tempSelectedHour}"]`);
+                const activeMin = document.querySelector(`#minutePickerList button[data-val="${tempSelectedMinute}"]`);
+                if (activeHour) activeHour.scrollIntoView({ block: 'center' });
+                if (activeMin) activeMin.scrollIntoView({ block: 'center' });
+            }, 20);
+        });
+
+        document.getElementById('closeTimePickerBtn').addEventListener('click', () => {
+            document.getElementById('timePickerModal').classList.add('hidden');
+        });
+        document.getElementById('timePickerModal').addEventListener('click', (e) => {
+            if (e.target.id === 'timePickerModal') {
+                document.getElementById('timePickerModal').classList.add('hidden');
+            }
+        });
+
+        document.getElementById('confirmTimePickerBtn').addEventListener('click', () => {
+            const formatted = `${tempSelectedHour}:${tempSelectedMinute}`;
+            notifyTimeInput.value = formatted;
+            notifyTimePickerBtn.innerText = formatted;
+            document.getElementById('timePickerModal').classList.add('hidden');
+            saveNotificationSettings(false);
+        });
 
         function applyNotificationSettingsUI() {
-            const settings = userData.notificationSettings || { testMode: false, daysBefore: 1, notifyHour: 9 };
+            const settings = userData.notificationSettings || { testMode: false, daysBefore: 1, notifyHour: 9, notifyTime: "09:00" };
             const isTest = Boolean(settings.testMode);
 
             testModeToggle.checked = isTest;
-            notifyDaysBeforeSelect.value = String(settings.daysBefore ?? 1);
-            notifyHourSelect.value = String(settings.notifyHour ?? 9);
+            notifyDaysBeforeSelect.value = settings.daysBefore === 0 ? "0" : "1";
+
+            let displayTime = "09:00";
+            if (settings.notifyTime) {
+                displayTime = settings.notifyTime;
+            } else {
+                const h = Number(settings.notifyHour ?? 9);
+                displayTime = `${String(h).padStart(2, '0')}:00`;
+            }
+            notifyTimeInput.value = displayTime;
+            notifyTimePickerBtn.innerText = displayTime;
 
             const normalBox = document.getElementById('normalScheduleSettings');
             const testInfoBox = document.getElementById('testModeInfoBox');
@@ -828,10 +986,14 @@
 
         async function saveNotificationSettings(triggerImmediatePopup = false) {
             if (!currentUsername) return;
+            const timeVal = notifyTimeInput.value || "09:00";
+            const parsedHour = Number(timeVal.split(':')[0]) || 0;
+
             const newSettings = {
                 testMode: testModeToggle.checked,
                 daysBefore: Number(notifyDaysBeforeSelect.value),
-                notifyHour: Number(notifyHourSelect.value)
+                notifyHour: parsedHour,
+                notifyTime: timeVal
             };
             userData.notificationSettings = newSettings;
             applyNotificationSettingsUI();
@@ -853,7 +1015,6 @@
 
         testModeToggle.addEventListener('change', () => saveNotificationSettings(true));
         notifyDaysBeforeSelect.addEventListener('change', () => saveNotificationSettings(false));
-        notifyHourSelect.addEventListener('change', () => saveNotificationSettings(false));
 
         // 테스트 모드에서 '미확인 내역 재발송 테스트' 버튼 클릭 시
         document.getElementById('retestTelegramBtn').addEventListener('click', async () => {
@@ -935,7 +1096,6 @@
         );
 
         document.getElementById('headerLockBtn').addEventListener('click', lockApp);
-        document.getElementById('desktopLockBtn').addEventListener('click', lockApp);
         document.getElementById('lockLogoutBtn').addEventListener('click', async () => {
             localStorage.removeItem('loginExpireTime');
             await signOut(auth);
@@ -989,7 +1149,6 @@
                 subscribeUserData();
             } else {
                 if (unsubscribeUserDoc) unsubscribeUserDoc();
-                alert('로그인이 필요합니다.');
                 location.href = 'index.html';
             }
         });
@@ -1000,18 +1159,15 @@
             const statusText = document.getElementById('pinSettingStatusText');
             const removeBtn = document.getElementById('removePinBtn');
             const headerLock = document.getElementById('headerLockBtn');
-            const desktopLock = document.getElementById('desktopLockBtn');
 
             if (isRegistered) {
                 statusText.innerHTML = `<span class="text-green-600 dark:text-green-400 font-bold">등록 완료</span> (6자리 간편비밀번호 사용 중)`;
                 removeBtn.classList.remove('hidden');
                 headerLock.classList.remove('hidden');
-                desktopLock.classList.remove('hidden');
             } else {
                 statusText.innerText = "미등록 (설정 시 6자리 숫자로 빠른 로그인 및 앱 잠금 가능)";
                 removeBtn.classList.add('hidden');
                 headerLock.classList.add('hidden');
-                desktopLock.classList.add('hidden');
             }
         }
 
@@ -1043,13 +1199,13 @@
                     if (!userData.거래내역) userData.거래내역 = {};
                     if (!userData.메모) userData.메모 = [];
                     if (!userData.notificationSettings) {
-                        userData.notificationSettings = { testMode: false, daysBefore: 1, notifyHour: 9 };
+                        userData.notificationSettings = { testMode: false, daysBefore: 1, notifyHour: 9, notifyTime: "09:00" };
                     }
                 } else {
                     userData = {
                         거래내역: {},
                         메모: [],
-                        notificationSettings: { testMode: false, daysBefore: 1, notifyHour: 9 }
+                        notificationSettings: { testMode: false, daysBefore: 1, notifyHour: 9, notifyTime: "09:00" }
                     };
                     await setDoc(userDocRef, userData, { merge: true });
                 }
@@ -1070,7 +1226,7 @@
         }
 
         // ==========================================
-        // 2. 예정 지출 알림 팝업 (테스트 모드 vs 일반 시점 기준)
+        // 2. 예정 지출 알림 팝업
         // ==========================================
         function getFormattedDate(dateObj) {
             return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
@@ -1086,13 +1242,12 @@
 
             const settings = userData.notificationSettings || { testMode: false, daysBefore: 1, notifyHour: 9 };
             const isTest = Boolean(settings.testMode);
-            const daysBefore = Number(settings.daysBefore ?? 1);
+            const daysBefore = settings.daysBefore === 0 ? 0 : 1;
 
             const upcomingItems = [];
             const txMap = userData.거래내역 || {};
 
             if (isTest) {
-                // 🧪 테스트 모드: 날짜에 관계없이 모든 미확인 예정 지출 수집
                 Object.keys(txMap).sort().forEach(dStr => {
                     (txMap[dStr] || []).forEach((item, idx) => {
                         if (item.분류 === '예정 지출' && !item.알림확인) {
@@ -1106,12 +1261,11 @@
                     });
                 });
             } else {
-                // ⏰ 일반 모드: 오늘(0)부터 설정된 daysBefore일 후까지의 예정 지출 수집
                 for (let offset = 0; offset <= daysBefore; offset++) {
                     const targetDate = new Date();
                     targetDate.setDate(today.getDate() + offset);
                     const dStr = getFormattedDate(targetDate);
-                    const label = offset === 0 ? '오늘 출금 예정' : (offset === 1 ? '내일 출금 예정' : `${offset}일 후 출금 예정`);
+                    const label = offset === 0 ? '오늘 출금 예정' : '내일 출금 예정';
 
                     (txMap[dStr] || []).forEach((item, idx) => {
                         if (item.분류 === '예정 지출' && !item.알림확인) {
@@ -1784,8 +1938,24 @@
         document.getElementById('globalCategoryFilter').addEventListener('change', renderGlobalSearchResults);
 
         // ==========================================
-        // 6. 타임스탬프 메모 로직
+        // 6. 타임스탬프 메모 로직 (iOS 앱 UI/UX 동기화)
         // ==========================================
+        const memoInputEl = document.getElementById('memoInput');
+        const memoCharCountEl = document.getElementById('memoCharCount');
+        const addMemoBtnEl = document.getElementById('addMemoBtn');
+
+        function updateMemoComposerState() {
+            const len = memoInputEl.value.length;
+            memoCharCountEl.innerText = `${len}자`;
+            if (memoInputEl.value.trim().length > 0) {
+                addMemoBtnEl.className = "bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-2xl transition font-bold text-sm shadow-sm flex items-center gap-1.5 cursor-pointer";
+            } else {
+                addMemoBtnEl.className = "bg-blue-300 dark:bg-blue-900/60 text-white px-5 py-2.5 rounded-2xl transition font-bold text-sm shadow-2xs flex items-center gap-1.5";
+            }
+        }
+
+        memoInputEl.addEventListener('input', updateMemoComposerState);
+
         function formatMemoTimestamp(isoStr) {
             if (!isoStr) return '기록된 메모';
             const d = new Date(isoStr);
@@ -1799,7 +1969,7 @@
             memoListEl.innerHTML = '';
 
             if (!userData.메모) userData.메모 = [];
-            document.getElementById('memoCountBadge').innerText = `총 ${userData.메모.length}개`;
+            document.getElementById('memoCountBadge').innerText = `총 ${userData.메모.length}개의 기록`;
 
             const filtered = userData.메모
                 .map((m, idx) => {
@@ -1819,7 +1989,7 @@
                 item.className = "bg-slate-50 dark:bg-slate-800/70 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-700/70 flex justify-between items-start gap-2 text-sm";
                 item.innerHTML = `
                     <div class="min-w-0 flex-grow">
-                        <span class="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 block mb-1">🕒 ${formatMemoTimestamp(createdAt)}</span>
+                        <span class="text-[10px] font-bold text-blue-600 dark:text-blue-400 block mb-1">🕒 ${formatMemoTimestamp(createdAt)}</span>
                         <p class="text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-all leading-relaxed">${escapeHtml(text)}</p>
                     </div>
                     <button type="button" class="del-memo-btn text-slate-400 hover:text-red-500 text-xs font-bold px-1.5 py-0.5 shrink-0">✕</button>
@@ -1831,8 +2001,8 @@
 
         document.getElementById('memoSearchInput').addEventListener('input', renderMemos);
 
-        document.getElementById('addMemoBtn').addEventListener('click', async () => {
-            const text = document.getElementById('memoInput').value.trim();
+        addMemoBtnEl.addEventListener('click', async () => {
+            const text = memoInputEl.value.trim();
             if (!text) {
                 alert('메모 내용을 입력해주세요.');
                 return;
@@ -1847,7 +2017,8 @@
             try {
                 const userDocRef = doc(db, "users", currentUsername);
                 await updateDoc(userDocRef, { 메모: userData.메모 });
-                document.getElementById('memoInput').value = '';
+                memoInputEl.value = '';
+                updateMemoComposerState();
                 renderMemos();
             } catch (error) {
                 alert('메모 등록 실패: ' + error.message);
@@ -2007,7 +2178,7 @@
         }
 
         // ==========================================
-        // 8. 타이머, 로그아웃 & 회원탈퇴
+        // 8. 타이머, 로그아웃 & 비밀번호 재인증 회원탈퇴
         // ==========================================
         let expireTime = localStorage.getItem('loginExpireTime');
         if (!expireTime) {
@@ -2052,26 +2223,90 @@
                 localStorage.removeItem('loginExpireTime');
                 sessionStorage.removeItem('mg_unlocked');
                 await signOut(auth);
-                alert('로그아웃 되었습니다.');
                 location.href = 'index.html';
             } catch (error) {
                 alert('로그아웃 실패: ' + error.message);
             }
         });
 
-        document.getElementById('withdrawBtn').addEventListener('click', async () => {
-            if (confirm('정말 회원탈퇴 하시겠습니까? 데이터와 계정이 영구적으로 삭제됩니다.')) {
-                try {
-                    if (unsubscribeUserDoc) unsubscribeUserDoc();
-                    await deleteDoc(doc(db, "users", currentUsername));
-                    await deleteUser(currentUser);
-                    localStorage.removeItem('mg_pin_data');
-                    localStorage.removeItem('loginExpireTime');
-                    alert('회원탈퇴가 완료되었습니다.');
-                    location.href = 'index.html';
-                } catch (error) {
-                    alert('회원탈퇴 실패: ' + error.message);
+        // 회원탈퇴 모달 열기 / 닫기 / 즉시 탈퇴 처리
+        const withdrawModal = document.getElementById('withdrawModal');
+        const withdrawPasswordInput = document.getElementById('withdrawPasswordInput');
+        const withdrawErrorMsg = document.getElementById('withdrawErrorMsg');
+        const confirmWithdrawBtn = document.getElementById('confirmWithdrawBtn');
+
+        function closeWithdrawModal() {
+            withdrawModal.classList.add('hidden');
+            withdrawPasswordInput.value = '';
+            withdrawErrorMsg.innerText = '';
+            withdrawErrorMsg.classList.add('hidden');
+        }
+
+        document.getElementById('withdrawBtn').addEventListener('click', () => {
+            withdrawPasswordInput.value = '';
+            withdrawErrorMsg.innerText = '';
+            withdrawErrorMsg.classList.add('hidden');
+            withdrawModal.classList.remove('hidden');
+            setTimeout(() => withdrawPasswordInput.focus(), 50);
+        });
+
+        document.getElementById('closeWithdrawModalBtn').addEventListener('click', closeWithdrawModal);
+        document.getElementById('cancelWithdrawBtn').addEventListener('click', closeWithdrawModal);
+        withdrawModal.addEventListener('click', (e) => {
+            if (e.target.id === 'withdrawModal') closeWithdrawModal();
+        });
+
+        withdrawPasswordInput.addEventListener('input', () => {
+            withdrawErrorMsg.classList.add('hidden');
+        });
+
+        async function executeWithdraw() {
+            const rawPw = withdrawPasswordInput.value;
+            if (!rawPw) {
+                withdrawErrorMsg.innerText = '비밀번호를 입력해주세요.';
+                withdrawErrorMsg.classList.remove('hidden');
+                return;
+            }
+
+            const firebasePw = rawPw.length < 6 ? rawPw + 'mgpass' : rawPw;
+            confirmWithdrawBtn.disabled = true;
+            confirmWithdrawBtn.innerText = '탈퇴 처리 중...';
+
+            try {
+                const credential = EmailAuthProvider.credential(currentUser.email, firebasePw);
+                await reauthenticateWithCredential(currentUser, credential);
+
+                if (unsubscribeUserDoc) unsubscribeUserDoc();
+                await deleteDoc(doc(db, "users", currentUsername));
+                await deleteUser(currentUser);
+
+                localStorage.removeItem('mg_pin_data');
+                localStorage.removeItem('mg_auto_lock');
+                localStorage.removeItem('loginExpireTime');
+                sessionStorage.removeItem('mg_unlocked');
+
+                alert('회원탈퇴가 완료되었습니다.');
+                location.href = 'index.html';
+            } catch (error) {
+                if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                    withdrawErrorMsg.innerText = '비밀번호가 일치하지 않습니다.';
+                } else if (error.code === 'auth/too-many-requests') {
+                    withdrawErrorMsg.innerText = '시도 횟수가 너무 많습니다. 잠시 후 다시 시도해주세요.';
+                } else {
+                    withdrawErrorMsg.innerText = '회원탈퇴 처리 중 오류가 발생했습니다. 다시 시도해주세요.';
                 }
+                withdrawErrorMsg.classList.remove('hidden');
+            } finally {
+                confirmWithdrawBtn.disabled = false;
+                confirmWithdrawBtn.innerText = '즉시 회원탈퇴';
+            }
+        }
+
+        confirmWithdrawBtn.addEventListener('click', executeWithdraw);
+        withdrawPasswordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                executeWithdraw();
             }
         });
     </script>

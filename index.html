@@ -27,7 +27,6 @@
     <link rel="apple-touch-icon" href="./icon.png">
     <link rel="icon" type="image/png" href="./icon.png">
     <style>
-        /* PIN 키패드 터치 하이라이트 제거 */
         .keypad-btn {
             -webkit-tap-highlight-color: transparent;
             user-select: none;
@@ -36,7 +35,7 @@
 </head>
 <body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex items-center justify-center min-h-screen p-4 transition-colors duration-200">
 
-    <!-- 1. 카카오뱅크 스타일 6자리 간편비밀번호(PIN) 로그인 화면 (등록된 기기일 때 우선 표시) -->
+    <!-- 1. 카카오뱅크 스타일 6자리 간편비밀번호(PIN) 로그인 화면 -->
     <div id="pinLoginCard" class="hidden bg-white dark:bg-slate-900 p-7 sm:p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-800 w-full max-w-sm flex flex-col items-center">
         <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-2xl mb-3 shadow-sm">
             🔐
@@ -57,9 +56,7 @@
         <p id="pinErrorMsg" class="text-xs text-red-500 font-semibold h-4 mb-2 text-center"></p>
 
         <!-- 숫자 키패드 -->
-        <div id="loginKeypad" class="grid grid-cols-3 gap-2.5 w-full max-w-[270px] mb-5">
-            <!-- JS로 1~9, 재배열, 0, 지우기 버튼 생성 -->
-        </div>
+        <div id="loginKeypad" class="grid grid-cols-3 gap-2.5 w-full max-w-[270px] mb-5"></div>
 
         <div class="w-full pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col items-center gap-2">
             <button type="button" id="switchToIdLoginBtn" class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
@@ -75,7 +72,7 @@
                 📅
             </div>
             <h1 class="text-2xl font-extrabold text-slate-900 dark:text-white">캘린더 가계부</h1>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">수입·지출 관리부터 예정 지출 알림까지</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">심플하고 똑똑한 내 손안의 가계부</p>
         </div>
 
         <!-- 저장된 PIN 계정이 있을 때 돌아가기 배너 -->
@@ -86,7 +83,7 @@
             </button>
         </div>
 
-        <form id="loginForm" class="space-y-4" onsubmit="return false;">
+        <form id="loginForm" class="space-y-3.5" onsubmit="return false;">
             <div>
                 <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">아이디</label>
                 <input type="text" id="username" autocomplete="username"
@@ -99,6 +96,9 @@
                     class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
                     placeholder="비밀번호를 입력하세요">
             </div>
+
+            <!-- 앱 스타일 인라인 에러 메시지 -->
+            <p id="authErrorMsg" class="hidden text-xs text-red-500 font-semibold pt-0.5 px-0.5"></p>
 
             <div class="pt-2 space-y-2.5">
                 <button type="submit" id="loginBtn"
@@ -153,7 +153,6 @@
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // 다크모드 초기 적용
         if (localStorage.getItem('mg_theme') === 'dark') {
             document.documentElement.classList.add('dark');
         }
@@ -170,6 +169,42 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+
+        // 인라인 에러 메시지 표시/숨김 함수
+        const authErrorMsg = document.getElementById('authErrorMsg');
+        function showAuthError(message) {
+            authErrorMsg.innerText = message;
+            authErrorMsg.classList.remove('hidden');
+        }
+        function clearAuthError() {
+            authErrorMsg.innerText = '';
+            authErrorMsg.classList.add('hidden');
+        }
+
+        // Firebase 에러 코드를 앱과 동일한 한국어 문구로 변환
+        function getKoreanAuthError(errorCode, isSignup = false) {
+            switch (errorCode) {
+                case 'auth/email-already-in-use':
+                    return '이미 가입된 아이디입니다.';
+                case 'auth/invalid-email':
+                    return '아이디 형식이 올바르지 않습니다. (영문, 숫자 사용)';
+                case 'auth/weak-password':
+                    return '비밀번호는 6자리 이상으로 설정해주세요.';
+                case 'auth/user-not-found':
+                case 'auth/wrong-password':
+                case 'auth/invalid-credential':
+                    return '아이디 또는 비밀번호가 일치하지 않습니다.';
+                case 'auth/too-many-requests':
+                    return '시도 횟수가 너무 많습니다. 잠시 후 다시 시도해주세요.';
+                case 'auth/network-request-failed':
+                    return '네트워크 연결을 확인해주세요.';
+                default:
+                    return isSignup ? '회원가입에 실패했습니다. 다시 시도해주세요.' : '로그인에 실패했습니다. 다시 시도해주세요.';
+            }
+        }
+
+        document.getElementById('username').addEventListener('input', clearAuthError);
+        document.getElementById('password').addEventListener('input', clearAuthError);
 
         // SHA-256 해시 유틸리티
         async function sha256(text) {
@@ -188,7 +223,6 @@
             return JSON.parse(decodeURIComponent(atob(str)));
         }
 
-        // 저장된 PIN 데이터 불러오기
         function getSavedPinData() {
             try {
                 const raw = localStorage.getItem('mg_pin_data');
@@ -198,8 +232,7 @@
             }
         }
 
-        // 공통 키패드 렌더러 (카카오뱅크 스타일)
-        function renderKeypad(containerEl, onDigit, onDelete, onShuffle) {
+        function renderKeypad(containerEl, onDigit, onDelete) {
             containerEl.innerHTML = '';
             const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '재배열', '0', '⌫'];
             digits.forEach(key => {
@@ -270,6 +303,7 @@
         function showPinLoginMode() {
             const data = getSavedPinData();
             if (!data) return;
+            clearAuthError();
             document.getElementById('pinUserSubtitle').innerText = `${data.username}님의 6자리 비밀번호를 입력하세요`;
             document.getElementById('pinLoginCard').classList.remove('hidden');
             document.getElementById('idLoginCard').classList.add('hidden');
@@ -280,6 +314,7 @@
 
         function showIdLoginMode() {
             const data = getSavedPinData();
+            clearAuthError();
             document.getElementById('pinLoginCard').classList.add('hidden');
             document.getElementById('idLoginCard').classList.remove('hidden');
             if (data) {
@@ -350,7 +385,7 @@
         // B. 보안 온보딩 (회원가입/로그인 후 6자리 PIN 설정)
         // ==========================================
         let pendingAuthCreds = null;
-        let onboardingStep = 1; // 1: 새 PIN 입력, 2: 확인 입력
+        let onboardingStep = 1;
         let firstOnboardingPin = "";
         let currentOnboardingPin = "";
 
@@ -431,11 +466,12 @@
         // C. 일반 아이디 로그인 및 회원가입 처리
         // ==========================================
         async function handleLogin() {
+            clearAuthError();
             const rawId = document.getElementById('username').value.trim();
             const rawPassword = document.getElementById('password').value;
 
             if (!rawId || !rawPassword) {
-                alert('아이디와 비밀번호를 입력해주세요!');
+                showAuthError('아이디와 비밀번호를 모두 입력해주세요.');
                 return;
             }
 
@@ -454,13 +490,12 @@
                 if (!existingPin || existingPin.username !== rawId) {
                     openOnboardingModal(rawId, email, password);
                 } else {
-                    // 비밀번호가 변경되었을 수 있으므로 payload 최신화
                     existingPin.authPayload = encodePayload({ email, password });
                     localStorage.setItem('mg_pin_data', JSON.stringify(existingPin));
                     location.href = './main.html';
                 }
             } catch (error) {
-                alert('로그인 실패: 아이디나 비밀번호를 확인해주세요.');
+                showAuthError(getKoreanAuthError(error.code, false));
             } finally {
                 loginBtn.disabled = false;
                 loginBtn.innerText = '로그인';
@@ -468,11 +503,12 @@
         }
 
         document.getElementById('signupBtn').addEventListener('click', async () => {
+            clearAuthError();
             const rawId = document.getElementById('username').value.trim();
             const rawPassword = document.getElementById('password').value;
 
             if (!rawId || !rawPassword) {
-                alert('아이디와 비밀번호를 입력해주세요!');
+                showAuthError('아이디와 비밀번호를 모두 입력해주세요.');
                 return;
             }
 
@@ -494,7 +530,7 @@
                 sessionStorage.setItem('mg_unlocked', 'true');
                 openOnboardingModal(rawId, email, password);
             } catch (error) {
-                alert('회원가입 실패: ' + error.message);
+                showAuthError(getKoreanAuthError(error.code, true));
             } finally {
                 signupBtn.disabled = false;
                 signupBtn.innerText = '회원가입';
