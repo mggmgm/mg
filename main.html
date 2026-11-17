@@ -166,10 +166,7 @@
         <div class="flex items-center space-x-2.5 min-w-0">
             <span class="text-xl shrink-0">🤖</span>
             <div class="min-w-0">
-                <div class="flex items-center gap-1.5">
-                    <h3 class="text-xs sm:text-sm font-bold text-blue-950 dark:text-blue-200 truncate">텔레그램 출금 예정 알림 연동</h3>
-                    <span id="headerTestModeBadge" class="hidden text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-600 text-white">🧪 테스트 모드 ON</span>
-                </div>
+                <h3 class="text-xs sm:text-sm font-bold text-blue-950 dark:text-blue-200 truncate">텔레그램 출금 예정 알림 연동</h3>
                 <p id="telegramStatusText" class="text-[11px] text-blue-700 dark:text-blue-400 truncate">상태 확인 중...</p>
             </div>
         </div>
@@ -912,7 +909,6 @@
             }
         }
 
-        // '09:00' 버튼의 어느 부분을 클릭해도 둥근 커스텀 피커 모달 오픈
         notifyTimePickerBtn.addEventListener('click', () => {
             const currentVal = notifyTimeInput.value || "09:00";
             const [hPart, mPart] = currentVal.split(':');
@@ -923,7 +919,6 @@
             renderTimePickerLists();
             document.getElementById('timePickerModal').classList.remove('hidden');
 
-            // 선택된 항목 위치로 스크롤
             setTimeout(() => {
                 const activeHour = document.querySelector(`#hourPickerList button[data-val="${tempSelectedHour}"]`);
                 const activeMin = document.querySelector(`#minutePickerList button[data-val="${tempSelectedMinute}"]`);
@@ -969,19 +964,18 @@
             const normalBox = document.getElementById('normalScheduleSettings');
             const testInfoBox = document.getElementById('testModeInfoBox');
             const testPill = document.getElementById('testModeActivePill');
-            const headerBadge = document.getElementById('headerTestModeBadge');
 
             if (isTest) {
                 normalBox.classList.add('hidden');
                 testInfoBox.classList.remove('hidden');
                 testPill.classList.remove('hidden');
-                headerBadge.classList.remove('hidden');
             } else {
                 normalBox.classList.remove('hidden');
                 testInfoBox.classList.add('hidden');
                 testPill.classList.add('hidden');
-                headerBadge.classList.add('hidden');
             }
+
+            updateTelegramUI();
         }
 
         async function saveNotificationSettings(triggerImmediatePopup = false) {
@@ -1211,7 +1205,6 @@
                 }
 
                 applyNotificationSettingsUI();
-                updateTelegramUI();
                 renderCalendarAndSummary();
                 renderAnalyticsAndSearch();
                 renderMemos();
@@ -1340,18 +1333,20 @@
             const statusEl = document.getElementById('telegramStatusText');
             const btnEl = document.getElementById('telegramLinkBtn');
             const modalEl = document.getElementById('telegramModal');
+            const isTest = Boolean(userData.notificationSettings && userData.notificationSettings.testMode);
+            const testSuffix = isTest ? ` <span class="text-purple-600 dark:text-purple-400 font-extrabold">· 🧪 테스트 중</span>` : '';
 
             if (userData.telegram && userData.telegram.chatId) {
-                statusEl.innerHTML = `상태: <span class="font-bold text-green-700 dark:text-green-400">연동 완료 (알림 수신 중)</span>`;
+                statusEl.innerHTML = `상태: <span class="font-bold text-green-700 dark:text-green-400">연동 완료 (알림 수신 중)</span>${testSuffix}`;
                 btnEl.innerText = "연동 해제";
                 btnEl.className = "bg-red-500 text-white px-3 py-1.5 rounded-xl hover:bg-red-600 transition text-xs font-bold shadow-2xs whitespace-nowrap";
                 modalEl.classList.add('hidden');
             } else if (userData.telegram && userData.telegram.authCode) {
-                statusEl.innerHTML = `대기 중 (<span class="font-bold text-orange-600 dark:text-orange-400">${userData.telegram.authCode}</span>)`;
+                statusEl.innerHTML = `대기 중 (<span class="font-bold text-orange-600 dark:text-orange-400">${userData.telegram.authCode}</span>)${testSuffix}`;
                 btnEl.innerText = "연동 코드 재확인";
                 btnEl.className = "bg-orange-500 text-white px-3 py-1.5 rounded-xl hover:bg-orange-600 transition text-xs font-bold shadow-2xs whitespace-nowrap";
             } else {
-                statusEl.innerHTML = `상태: <span class="text-slate-500 dark:text-slate-400">미연동 (알림 받기 연동 필요)</span>`;
+                statusEl.innerHTML = `상태: <span class="text-slate-500 dark:text-slate-400">미연동 (연동 필요)</span>${testSuffix}`;
                 btnEl.innerText = "텔레그램 연동하기";
                 btnEl.className = "bg-blue-600 text-white px-3 py-1.5 rounded-xl hover:bg-blue-700 transition text-xs font-bold shadow-2xs whitespace-nowrap";
             }
