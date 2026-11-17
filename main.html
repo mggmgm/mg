@@ -44,6 +44,25 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+        /* iOS 드럼 휠 피커 스타일 */
+        .wheel-column {
+            scroll-snap-type: y mandatory;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+        }
+        .wheel-item {
+            scroll-snap-align: center;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            transition: transform 0.12s ease, color 0.12s ease, opacity 0.12s ease;
+        }
+        .wheel-mask {
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.45) 18%, #000 38%, #000 62%, rgba(0,0,0,0.45) 82%, transparent 100%);
+            mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.45) 18%, #000 38%, #000 62%, rgba(0,0,0,0.45) 82%, transparent 100%);
+        }
         body {
             padding-bottom: 84px;
         }
@@ -100,35 +119,6 @@
             <div id="upcomingAlertList" class="space-y-2 max-h-60 overflow-y-auto my-3"></div>
             <button id="dismissAllUpcomingBtn" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 py-2.5 rounded-xl text-xs font-bold transition">
                 오늘 하루 창 닫기
-            </button>
-        </div>
-    </div>
-
-    <!-- ⏰ 둥근 iOS 스타일 커스텀 알림 시각 선택 모달 -->
-    <div id="timePickerModal" class="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center hidden z-[70] p-4">
-        <div class="bg-white dark:bg-slate-900 w-full max-w-xs p-5 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800">
-            <div class="flex justify-between items-center mb-3 pb-2.5 border-b border-slate-100 dark:border-slate-800">
-                <h3 class="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <span>⏰</span> 알림 시각 선택
-                </h3>
-                <button type="button" id="closeTimePickerBtn" class="text-slate-400 hover:text-slate-600 font-bold px-1.5">✕</button>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3 my-2">
-                <!-- 시 선택 -->
-                <div>
-                    <p class="text-[11px] font-bold text-slate-400 text-center mb-1.5">시 (Hour)</p>
-                    <div id="hourPickerList" class="h-44 overflow-y-auto space-y-1 pr-1 bg-slate-50 dark:bg-slate-800/70 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700"></div>
-                </div>
-                <!-- 분 선택 -->
-                <div>
-                    <p class="text-[11px] font-bold text-slate-400 text-center mb-1.5">분 (Minute)</p>
-                    <div id="minutePickerList" class="h-44 overflow-y-auto space-y-1 pr-1 bg-slate-50 dark:bg-slate-800/70 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-700"></div>
-                </div>
-            </div>
-
-            <button type="button" id="confirmTimePickerBtn" class="w-full mt-3 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-2xl text-xs sm:text-sm font-extrabold transition shadow-sm">
-                선택 완료
             </button>
         </div>
     </div>
@@ -434,7 +424,7 @@
                 </button>
             </div>
 
-            <!-- 일반 모드(테스트 모드 OFF)일 때 표시되는 둥근 iOS 스타일 알림 시점 & 알림 시각 설정 -->
+            <!-- 일반 모드(테스트 모드 OFF)일 때 표시되는 iOS 스타일 알림 시점 & 드럼 휠 알림 시각 설정 -->
             <div id="normalScheduleSettings" class="bg-slate-50 dark:bg-slate-800/70 p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-700 space-y-3">
                 <div class="flex items-center justify-between gap-3">
                     <div>
@@ -452,17 +442,34 @@
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-700">
+                <div class="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-700 relative">
                     <div>
                         <p class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">⏰ 알림 시각</p>
                         <p class="text-[11px] text-slate-500 dark:text-slate-400">원하는 알림 발송 시각을 직접 지정합니다</p>
                     </div>
-                    <!-- 버튼 전체 영역 어디를 눌러도 둥근 커스텀 시간 선택창이 열림 -->
-                    <button type="button" id="notifyTimePickerBtn"
-                        class="bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300/80 dark:hover:bg-slate-600 active:scale-95 text-slate-900 dark:text-white font-extrabold text-xs sm:text-sm px-4 py-1.5 rounded-xl tracking-tight transition cursor-pointer shrink-0">
-                        09:00
-                    </button>
-                    <input type="hidden" id="notifyTimeInput" value="09:00">
+
+                    <!-- iOS 네이티브 스타일 드럼 휠 팝오버 컨테이너 -->
+                    <div id="wheelPickerAnchor" class="relative shrink-0">
+                        <button type="button" id="notifyTimePickerBtn"
+                            class="bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300/80 dark:hover:bg-slate-600 active:scale-95 text-slate-900 dark:text-white font-extrabold text-xs sm:text-sm px-4 py-1.5 rounded-xl tracking-tight transition cursor-pointer">
+                            09:00
+                        </button>
+                        <input type="hidden" id="notifyTimeInput" value="09:00">
+
+                        <!-- 버튼 바로 위에 떠오르는 둥근 iOS 휠 팝오버 -->
+                        <div id="iosWheelPopover" class="hidden absolute right-0 bottom-full mb-2.5 w-60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.16)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.55)] border border-slate-200/70 dark:border-slate-700/80 p-3 z-50">
+                            <div class="relative h-[180px] flex items-center justify-center overflow-hidden">
+                                <!-- 중앙 선택 하이라이트 바 -->
+                                <div class="pointer-events-none absolute inset-x-1.5 h-[36px] rounded-xl bg-slate-200/70 dark:bg-slate-700/70"></div>
+
+                                <!-- 시(00~23) 휠 -->
+                                <div id="wheelHourCol" class="wheel-column wheel-mask no-scrollbar h-full w-24 overflow-y-auto z-10 py-[72px]"></div>
+
+                                <!-- 분(00~59) 휠 -->
+                                <div id="wheelMinuteCol" class="wheel-column wheel-mask no-scrollbar h-full w-24 overflow-y-auto z-10 py-[72px]"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -831,7 +838,7 @@
         }
 
         // ==========================================
-        // 0. 테마, 잠금 화면, 커스텀 둥근 시간 피커 & 알림 설정
+        // 0. 테마, 잠금 화면, iOS 드럼 휠 시간 피커 & 알림 설정
         // ==========================================
         const darkModeToggle = document.getElementById('darkModeToggle');
         if (localStorage.getItem('mg_theme') === 'dark') {
@@ -870,85 +877,113 @@
         const notifyDaysBeforeSelect = document.getElementById('notifyDaysBeforeSelect');
         const notifyTimeInput = document.getElementById('notifyTimeInput');
         const notifyTimePickerBtn = document.getElementById('notifyTimePickerBtn');
+        const iosWheelPopover = document.getElementById('iosWheelPopover');
+        const wheelHourCol = document.getElementById('wheelHourCol');
+        const wheelMinuteCol = document.getElementById('wheelMinuteCol');
 
-        // 둥근 커스텀 시/분 선택 모달 초기화
-        let tempSelectedHour = "09";
-        let tempSelectedMinute = "00";
+        const WHEEL_ITEM_HEIGHT = 36;
+        let wheelHourIndex = 9;
+        let wheelMinuteIndex = 0;
+        let wheelInitialized = false;
+        let wheelSaveTimer = null;
 
-        function renderTimePickerLists() {
-            const hourList = document.getElementById('hourPickerList');
-            const minuteList = document.getElementById('minutePickerList');
-            hourList.innerHTML = '';
-            minuteList.innerHTML = '';
+        function buildIosWheelColumns() {
+            if (wheelInitialized) return;
+            wheelInitialized = true;
 
+            wheelHourCol.innerHTML = '';
             for (let h = 0; h < 24; h++) {
-                const hStr = String(h).padStart(2, '0');
-                const isSelected = hStr === tempSelectedHour;
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.dataset.val = hStr;
-                btn.className = isSelected
-                    ? "w-full py-2 rounded-xl bg-indigo-600 text-white font-extrabold text-sm shadow-2xs transition"
-                    : "w-full py-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 font-bold text-sm transition";
-                btn.innerText = `${hStr}시`;
-                btn.addEventListener('click', () => {
-                    tempSelectedHour = hStr;
-                    renderTimePickerLists();
+                const div = document.createElement('div');
+                div.className = 'wheel-item text-lg font-medium text-slate-400 dark:text-slate-500 cursor-pointer';
+                div.dataset.idx = h;
+                div.innerText = String(h).padStart(2, '0');
+                div.addEventListener('click', () => {
+                    wheelHourCol.scrollTo({ top: h * WHEEL_ITEM_HEIGHT, behavior: 'smooth' });
                 });
-                hourList.appendChild(btn);
+                wheelHourCol.appendChild(div);
             }
 
-            for (let m = 0; m < 60; m += 5) {
-                const mStr = String(m).padStart(2, '0');
-                const isSelected = mStr === tempSelectedMinute;
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.dataset.val = mStr;
-                btn.className = isSelected
-                    ? "w-full py-2 rounded-xl bg-indigo-600 text-white font-extrabold text-sm shadow-2xs transition"
-                    : "w-full py-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-700 font-bold text-sm transition";
-                btn.innerText = `${mStr}분`;
-                btn.addEventListener('click', () => {
-                    tempSelectedMinute = mStr;
-                    renderTimePickerLists();
+            wheelMinuteCol.innerHTML = '';
+            for (let m = 0; m < 60; m++) {
+                const div = document.createElement('div');
+                div.className = 'wheel-item text-lg font-medium text-slate-400 dark:text-slate-500 cursor-pointer';
+                div.dataset.idx = m;
+                div.innerText = String(m).padStart(2, '0');
+                div.addEventListener('click', () => {
+                    wheelMinuteCol.scrollTo({ top: m * WHEEL_ITEM_HEIGHT, behavior: 'smooth' });
                 });
-                minuteList.appendChild(btn);
+                wheelMinuteCol.appendChild(div);
             }
+
+            const updateColumnVisuals = (colEl, maxIdx) => {
+                const idx = Math.max(0, Math.min(maxIdx, Math.round(colEl.scrollTop / WHEEL_ITEM_HEIGHT)));
+                colEl.querySelectorAll('.wheel-item').forEach((item, i) => {
+                    const dist = Math.abs(i - idx);
+                    if (dist === 0) {
+                        item.className = 'wheel-item text-[21px] font-extrabold text-slate-900 dark:text-white cursor-pointer';
+                    } else if (dist === 1) {
+                        item.className = 'wheel-item text-[17px] font-medium text-slate-500 dark:text-slate-400 cursor-pointer';
+                    } else {
+                        item.className = 'wheel-item text-[15px] font-normal text-slate-400/70 dark:text-slate-500/70 cursor-pointer';
+                    }
+                });
+                return idx;
+            };
+
+            const onWheelScroll = () => {
+                wheelHourIndex = updateColumnVisuals(wheelHourCol, 23);
+                wheelMinuteIndex = updateColumnVisuals(wheelMinuteCol, 59);
+                const formatted = `${String(wheelHourIndex).padStart(2, '0')}:${String(wheelMinuteIndex).padStart(2, '0')}`;
+                notifyTimeInput.value = formatted;
+                notifyTimePickerBtn.innerText = formatted;
+
+                clearTimeout(wheelSaveTimer);
+                wheelSaveTimer = setTimeout(() => {
+                    saveNotificationSettings(false);
+                }, 350);
+            };
+
+            wheelHourCol.addEventListener('scroll', onWheelScroll, { passive: true });
+            wheelMinuteCol.addEventListener('scroll', onWheelScroll, { passive: true });
         }
 
-        notifyTimePickerBtn.addEventListener('click', () => {
+        function openIosWheelPopover() {
+            buildIosWheelColumns();
             const currentVal = notifyTimeInput.value || "09:00";
             const [hPart, mPart] = currentVal.split(':');
-            tempSelectedHour = (hPart || "09").padStart(2, '0');
-            const mNum = Math.floor((Number(mPart) || 0) / 5) * 5;
-            tempSelectedMinute = String(mNum).padStart(2, '0');
+            wheelHourIndex = Math.max(0, Math.min(23, Number(hPart) || 0));
+            wheelMinuteIndex = Math.max(0, Math.min(59, Number(mPart) || 0));
 
-            renderTimePickerLists();
-            document.getElementById('timePickerModal').classList.remove('hidden');
+            iosWheelPopover.classList.remove('hidden');
+            notifyTimePickerBtn.classList.add('text-indigo-600', 'dark:text-indigo-400');
 
-            setTimeout(() => {
-                const activeHour = document.querySelector(`#hourPickerList button[data-val="${tempSelectedHour}"]`);
-                const activeMin = document.querySelector(`#minutePickerList button[data-val="${tempSelectedMinute}"]`);
-                if (activeHour) activeHour.scrollIntoView({ block: 'center' });
-                if (activeMin) activeMin.scrollIntoView({ block: 'center' });
-            }, 20);
-        });
+            requestAnimationFrame(() => {
+                wheelHourCol.scrollTop = wheelHourIndex * WHEEL_ITEM_HEIGHT;
+                wheelMinuteCol.scrollTop = wheelMinuteIndex * WHEEL_ITEM_HEIGHT;
+            });
+        }
 
-        document.getElementById('closeTimePickerBtn').addEventListener('click', () => {
-            document.getElementById('timePickerModal').classList.add('hidden');
-        });
-        document.getElementById('timePickerModal').addEventListener('click', (e) => {
-            if (e.target.id === 'timePickerModal') {
-                document.getElementById('timePickerModal').classList.add('hidden');
+        function closeIosWheelPopover() {
+            if (iosWheelPopover.classList.contains('hidden')) return;
+            iosWheelPopover.classList.add('hidden');
+            notifyTimePickerBtn.classList.remove('text-indigo-600', 'dark:text-indigo-400');
+            saveNotificationSettings(false);
+        }
+
+        notifyTimePickerBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (iosWheelPopover.classList.contains('hidden')) {
+                openIosWheelPopover();
+            } else {
+                closeIosWheelPopover();
             }
         });
 
-        document.getElementById('confirmTimePickerBtn').addEventListener('click', () => {
-            const formatted = `${tempSelectedHour}:${tempSelectedMinute}`;
-            notifyTimeInput.value = formatted;
-            notifyTimePickerBtn.innerText = formatted;
-            document.getElementById('timePickerModal').classList.add('hidden');
-            saveNotificationSettings(false);
+        document.addEventListener('click', (e) => {
+            const anchor = document.getElementById('wheelPickerAnchor');
+            if (anchor && !anchor.contains(e.target)) {
+                closeIosWheelPopover();
+            }
         });
 
         function applyNotificationSettingsUI() {
