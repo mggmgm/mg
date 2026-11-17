@@ -2,254 +2,672 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>캘린더 수입/지출 가계부 & 메모</title>
-    <!-- Tailwind CSS CDN -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>캘린더 수입/지출 가계부 & 대시보드</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    keyframes: {
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '20%, 60%': { transform: 'translateX(-8px)' },
+                            '40%, 80%': { transform: 'translateX(8px)' },
+                        }
+                    },
+                    animation: {
+                        shake: 'shake 0.35s ease-in-out',
+                    }
+                }
+            }
+        }
+    </script>
     <link rel="apple-touch-icon" href="./icon.png">
     <link rel="icon" type="image/png" href="./icon.png">
     <style>
-        /* CSS로도 1차 숨김 처리 */
         iframe[src*="netlify"], #netlify-badge, .netlify-badge {
             display: none !important;
             visibility: hidden !important;
             opacity: 0 !important;
             pointer-events: none !important;
         }
+        .keypad-btn {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        body {
+            padding-bottom: 84px;
+        }
+        @media (min-width: 768px) {
+            body {
+                padding-bottom: 24px;
+            }
+        }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-2 sm:p-6 flex flex-col items-center">
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen p-2 sm:p-5 flex flex-col items-center transition-colors duration-200">
 
-    <!-- 상단 헤더 -->
-    <div class="w-full max-w-6xl bg-white p-3 sm:p-5 rounded-lg shadow-md mb-3 sm:mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-        <div>
-            <h1 class="text-lg sm:text-2xl font-bold text-gray-800">📅 캘린더 가계부 & 대시보드</h1>
-            <p id="userWelcome" class="text-xs sm:text-sm text-gray-600 mt-0.5">사용자 정보를 불러오는 중...</p>
-        </div>
-        
-        <!-- 우측 버튼 및 로그인 유지 시간 영역 (모바일 무조건 한 줄 정렬 최적화) -->
-        <div class="flex items-center justify-end gap-1 w-full md:w-auto overflow-x-auto whitespace-nowrap">
-            <!-- 로그인 유지 남은 시간 -->
-            <div class="bg-blue-50 px-1.5 py-1 rounded-lg border border-blue-100 flex items-center space-x-0.5">
-                <span class="text-[10px] text-blue-600 font-medium">⏱️:</span>
-                <span id="timerDisplay" class="text-[11px] font-extrabold text-blue-700">00:00:00</span>
+    <!-- 🔒 앱 잠금 화면 오버레이 -->
+    <div id="appLockOverlay" class="fixed inset-0 bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur-md z-[100] hidden flex-col items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 p-7 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-sm flex flex-col items-center">
+            <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950 flex items-center justify-center text-2xl mb-3">🔒</div>
+            <h2 class="text-lg font-extrabold text-slate-900 dark:text-white">가계부 잠금 해제</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">설정된 6자리 간편비밀번호를 입력하세요</p>
+
+            <div id="lockDotsContainer" class="flex items-center justify-center gap-3.5 my-6">
+                <span class="lock-dot w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 transition-all duration-150"></span>
+                <span class="lock-dot w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 transition-all duration-150"></span>
+                <span class="lock-dot w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 transition-all duration-150"></span>
+                <span class="lock-dot w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 transition-all duration-150"></span>
+                <span class="lock-dot w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 transition-all duration-150"></span>
+                <span class="lock-dot w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 transition-all duration-150"></span>
             </div>
 
-            <!-- 시간 연장 버튼 -->
-            <button id="extendBtn" class="bg-indigo-500 text-white px-2 py-1 rounded-lg hover:bg-indigo-600 transition font-medium text-[11px] shadow">
-                연장(+1시간)
-            </button>
+            <p id="lockErrorMsg" class="text-xs text-red-500 font-semibold h-4 mb-2 text-center"></p>
+            <div id="lockKeypad" class="grid grid-cols-3 gap-2.5 w-full max-w-[260px] mb-4"></div>
 
-            <!-- 로그아웃 버튼 -->
-            <button id="logoutBtn" class="bg-gray-200 text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-300 transition text-[11px] font-medium">로그아웃</button>
-            
-            <!-- 회원탈퇴 버튼 -->
-            <button id="withdrawBtn" class="bg-red-100 text-red-600 px-2 py-1 rounded-lg hover:bg-red-200 transition text-[11px] font-medium">회원탈퇴</button>
+            <button type="button" id="lockLogoutBtn" class="text-xs text-slate-400 hover:text-red-500 font-semibold mt-1">
+                로그아웃 후 다시 로그인
+            </button>
         </div>
     </div>
 
-    <!-- 🤖 텔레그램 연동 상태 카드 (모바일 한 줄 정렬 최적화) -->
-    <div class="w-full max-w-6xl bg-blue-50 border border-blue-200 p-3 sm:p-4 rounded-lg shadow-md mb-4 sm:mb-6 flex flex-row justify-between items-center gap-2">
-        <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
-            <span class="text-xl sm:text-2xl shrink-0">🤖</span>
+    <!-- 🔔 예정 지출 알림 팝업 오버레이 -->
+    <div id="upcomingAlertModal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center hidden z-[60] p-4">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-sm p-5 sm:p-6 rounded-3xl shadow-2xl border border-orange-100 dark:border-slate-800">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-9 h-9 rounded-2xl bg-orange-100 dark:bg-orange-950/70 flex items-center justify-center text-lg">⏰</span>
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <h3 class="text-base font-extrabold text-slate-900 dark:text-white">예정 지출 알림</h3>
+                            <span id="popupTestBadge" class="hidden text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">테스트 모드</span>
+                        </div>
+                        <p id="upcomingAlertSubtitle" class="text-[11px] text-orange-600 dark:text-orange-400 font-semibold">곧 출금 예정인 내역을 확인하세요</p>
+                    </div>
+                </div>
+                <button id="closeUpcomingAlertBtn" class="text-slate-400 hover:text-slate-600 font-bold px-2">✕</button>
+            </div>
+            <div id="upcomingAlertList" class="space-y-2 max-h-60 overflow-y-auto my-3"></div>
+            <button id="dismissAllUpcomingBtn" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 py-2.5 rounded-xl text-xs font-bold transition">
+                오늘 하루 창 닫기
+            </button>
+        </div>
+    </div>
+
+    <!-- 상단 헤더 -->
+    <header class="w-full max-w-5xl bg-white dark:bg-slate-900 p-3.5 sm:p-5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 mb-3 flex flex-col md:flex-row justify-between items-start md:items-center gap-2.5">
+        <div class="flex items-center justify-between w-full md:w-auto">
+            <div>
+                <h1 class="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span>📅</span> 캘린더 가계부
+                </h1>
+                <p id="userWelcome" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">사용자 정보를 불러오는 중...</p>
+            </div>
+            <button id="headerLockBtn" class="hidden md:hidden bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-2.5 py-1.5 rounded-xl text-xs font-bold">
+                🔒 잠금
+            </button>
+        </div>
+
+        <div class="flex items-center justify-end gap-1.5 w-full md:w-auto overflow-x-auto whitespace-nowrap">
+            <button id="desktopLockBtn" class="hidden bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-2.5 py-1 rounded-xl text-[11px] font-bold transition">
+                🔒 잠금
+            </button>
+
+            <div class="bg-indigo-50 dark:bg-indigo-950/60 px-2 py-1 rounded-xl border border-indigo-100 dark:border-indigo-900/60 flex items-center space-x-1">
+                <span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">⏱️</span>
+                <span id="timerDisplay" class="text-[11px] font-extrabold text-indigo-700 dark:text-indigo-300">00:00:00</span>
+            </div>
+
+            <button id="extendBtn" class="bg-indigo-600 text-white px-2.5 py-1 rounded-xl hover:bg-indigo-700 transition font-bold text-[11px] shadow-2xs">
+                연장(+1시간)
+            </button>
+
+            <button id="logoutBtn" class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2.5 py-1 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition text-[11px] font-bold">
+                로그아웃
+            </button>
+
+            <button id="withdrawBtn" class="bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 px-2.5 py-1 rounded-xl hover:bg-red-100 transition text-[11px] font-bold">
+                회원탈퇴
+            </button>
+        </div>
+    </header>
+
+    <!-- 🤖 텔레그램 연동 상태 카드 -->
+    <div class="w-full max-w-5xl bg-blue-50/90 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-900/60 p-3 sm:p-3.5 rounded-2xl shadow-2xs mb-3 flex flex-row justify-between items-center gap-2">
+        <div class="flex items-center space-x-2.5 min-w-0">
+            <span class="text-xl shrink-0">🤖</span>
             <div class="min-w-0">
-                <h3 class="text-xs sm:text-sm font-bold text-blue-900 truncate">텔레그램 출금 예정 알림 연동</h3>
-                <p id="telegramStatusText" class="text-[10px] sm:text-xs text-blue-700 truncate">상태 확인 중...</p>
+                <div class="flex items-center gap-1.5">
+                    <h3 class="text-xs sm:text-sm font-bold text-blue-950 dark:text-blue-200 truncate">텔레그램 출금 예정 알림 연동</h3>
+                    <span id="headerTestModeBadge" class="hidden text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-600 text-white">🧪 테스트 모드 ON</span>
+                </div>
+                <p id="telegramStatusText" class="text-[11px] text-blue-700 dark:text-blue-400 truncate">상태 확인 중...</p>
             </div>
         </div>
         <div class="flex items-center shrink-0">
-            <button id="telegramLinkBtn" class="bg-blue-600 text-white px-2.5 py-1.5 sm:px-3 rounded-lg hover:bg-blue-700 transition text-[11px] sm:text-xs font-medium shadow whitespace-nowrap">
+            <button id="telegramLinkBtn" class="bg-blue-600 text-white px-3 py-1.5 rounded-xl hover:bg-blue-700 transition text-xs font-bold shadow-2xs whitespace-nowrap">
                 텔레그램 연동하기
             </button>
         </div>
     </div>
 
-    <!-- 메인 콘텐츠 레이아웃 (좌측: 캘린더 및 요약/리스트, 우측: 메모) -->
-    <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6">
-        
-        <!-- 1번 영역: 캘린더, 요약 통계 및 토스 스타일 월별 내역 (2칸 차지) -->
-        <div class="lg:col-span-2 bg-white p-3 sm:p-6 rounded-lg shadow-md flex flex-col justify-between">
-            <div>
-                <!-- 달력 상단 컨트롤 (월 이동) -->
-                <div class="flex justify-between items-center mb-4 sm:mb-6 px-1">
-                    <button id="prevMonthBtn" class="bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-gray-700 transition">◀ 이전 달</button>
-                    <h2 id="calendarTitle" class="text-lg sm:text-xl font-extrabold text-gray-800">2026년 11월</h2>
-                    <button id="nextMonthBtn" class="bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-gray-700 transition">다음 달 ▶</button>
-                </div>
+    <!-- 데스크톱 상단 4단 탭 네비게이션 -->
+    <nav class="hidden md:grid grid-cols-4 gap-2 w-full max-w-5xl bg-white dark:bg-slate-900 p-1.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 mb-4">
+        <button data-tab="calendar" class="nav-tab-btn py-2.5 rounded-xl text-sm font-extrabold transition flex items-center justify-center gap-1.5 bg-indigo-600 text-white shadow-sm">
+            <span>📅</span> 캘린더
+        </button>
+        <button data-tab="analytics" class="nav-tab-btn py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center justify-center gap-1.5">
+            <span>📊</span> 분석 & 검색
+        </button>
+        <button data-tab="memo" class="nav-tab-btn py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center justify-center gap-1.5">
+            <span>📝</span> 메모
+        </button>
+        <button data-tab="settings" class="nav-tab-btn py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center justify-center gap-1.5">
+            <span>⚙️</span> 설정
+        </button>
+    </nav>
 
-                <!-- 요일 헤더 -->
-                <div class="grid grid-cols-7 gap-0.5 sm:gap-1 text-center font-bold text-gray-500 text-xs sm:text-sm mb-2">
-                    <div class="text-red-500">일</div>
-                    <div>월</div>
-                    <div>화</div>
-                    <div>수</div>
-                    <div>목</div>
-                    <div>금</div>
-                    <div class="text-blue-500">토</div>
-                </div>
-
-                <!-- 달력 날짜 그리드 -->
-                <div id="calendarGrid" class="grid grid-cols-7 gap-1 mb-4 sm:mb-6">
-                    <!-- 자바스크립트로 동적 생성됨 -->
-                </div>
-            </div>
-
-            <!-- 이번달 요약 통계 카드 (4분할) -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 pt-3 sm:pt-4 border-t">
-                <div class="bg-blue-50 p-2.5 sm:p-3 rounded-xl text-center shadow-sm">
-                    <span class="text-[11px] sm:text-xs text-blue-600 font-medium">이번달 총 수입</span>
-                    <div id="summaryIncome" class="text-xs sm:text-sm font-extrabold text-blue-700 mt-1">0 원</div>
-                </div>
-                <div class="bg-red-50 p-2.5 sm:p-3 rounded-xl text-center shadow-sm">
-                    <span class="text-[11px] sm:text-xs text-red-600 font-medium">이번달 총 지출</span>
-                    <div id="summaryExpense" class="text-xs sm:text-sm font-extrabold text-red-700 mt-1">0 원</div>
-                </div>
-                <div class="bg-orange-50 p-2.5 sm:p-3 rounded-xl text-center shadow-sm">
-                    <span id="summaryPlannedLabel" class="text-[11px] sm:text-xs text-orange-600 font-medium">예상 지출 총액</span>
-                    <div id="summaryPlanned" class="text-xs sm:text-sm font-extrabold text-orange-700 mt-1">0 원</div>
-                </div>
-                <div class="bg-indigo-50 p-2.5 sm:p-3 rounded-xl text-center shadow-sm">
-                    <span class="text-[11px] sm:text-xs text-indigo-600 font-medium">순수입 (수입-지출)</span>
-                    <div id="summaryNet" class="text-xs sm:text-sm font-extrabold text-indigo-700 mt-1">0 원</div>
-                </div>
-            </div>
-
-            <!-- 토스 스타일 이번 달 전체 내역 리스트 -->
-            <div class="mt-6 pt-4 border-t">
-                <div class="flex justify-between items-center mb-3">
-                    <h3 class="text-sm font-bold text-gray-800 flex items-center">📋 이번 달 거래 내역 모아보기</h3>
-                    <span id="monthlyItemCount" class="text-xs text-gray-500 font-medium">총 0건</span>
-                </div>
-                <div id="monthlyTransactionFeed" class="space-y-2 max-h-[320px] overflow-y-auto pr-1">
-                    <p class="text-xs text-gray-400 text-center py-4">이번 달 등록된 내역이 없습니다.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- 2번 영역: 메모 (1칸 차지) -->
-        <div class="bg-white p-4 sm:p-6 rounded-lg shadow-md flex flex-col justify-between">
-            <div class="flex flex-col h-full">
-                <h2 class="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4 flex items-center">📝 메모</h2>
-                
-                <div class="mb-3">
-                    <textarea id="memoInput" placeholder="기록할 내용을 입력하세요..." class="w-full border rounded-lg p-2 text-sm focus:outline-blue-500 resize-none h-24"></textarea>
-                    <button id="addMemoBtn" class="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition font-medium text-sm shadow mt-1">
-                        메모 등록
+    <!-- ========================================== -->
+    <!-- 탭 1: 캘린더 영역                           -->
+    <!-- ========================================== -->
+    <main id="tab-calendar" class="tab-section w-full max-w-5xl space-y-4">
+        <div class="bg-white dark:bg-slate-900 p-3.5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+            <div class="flex justify-between items-center mb-4 sm:mb-5 px-1">
+                <button id="prevMonthBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 transition">
+                    ◀ 이전 달
+                </button>
+                <div class="flex items-center gap-2">
+                    <h2 id="calendarTitle" class="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white">2026년 11월</h2>
+                    <button id="todayMonthBtn" class="text-[11px] bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 px-2 py-0.5 rounded-lg font-bold hover:bg-indigo-100 transition">
+                        오늘
                     </button>
                 </div>
+                <button id="nextMonthBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 transition">
+                    다음 달 ▶
+                </button>
+            </div>
 
-                <div id="memoList" class="space-y-2 overflow-y-auto max-h-[350px] pr-1 flex-grow border-t pt-2">
-                    <p class="text-xs text-gray-400 text-center py-4">저장된 메모가 없습니다.</p>
+            <div class="grid grid-cols-7 gap-1 text-center font-extrabold text-slate-400 dark:text-slate-500 text-xs mb-2">
+                <div class="text-red-500">일</div>
+                <div>월</div>
+                <div>화</div>
+                <div>수</div>
+                <div>목</div>
+                <div>금</div>
+                <div class="text-blue-500">토</div>
+            </div>
+
+            <div id="calendarGrid" class="grid grid-cols-7 gap-1 sm:gap-1.5 mb-5"></div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div class="bg-blue-50/80 dark:bg-blue-950/30 p-3 rounded-2xl text-center">
+                    <span class="text-[11px] text-blue-600 dark:text-blue-400 font-bold">이번달 총 수입</span>
+                    <div id="summaryIncome" class="text-xs sm:text-sm font-extrabold text-blue-700 dark:text-blue-300 mt-1">0 원</div>
+                </div>
+                <div class="bg-red-50/80 dark:bg-red-950/30 p-3 rounded-2xl text-center">
+                    <span class="text-[11px] text-red-600 dark:text-red-400 font-bold">이번달 총 지출</span>
+                    <div id="summaryExpense" class="text-xs sm:text-sm font-extrabold text-red-700 dark:text-red-300 mt-1">0 원</div>
+                </div>
+                <div class="bg-orange-50/80 dark:bg-orange-950/30 p-3 rounded-2xl text-center">
+                    <span id="summaryPlannedLabel" class="text-[11px] text-orange-600 dark:text-orange-400 font-bold">예상 지출 총액</span>
+                    <div id="summaryPlanned" class="text-xs sm:text-sm font-extrabold text-orange-700 dark:text-orange-300 mt-1">0 원</div>
+                </div>
+                <div class="bg-indigo-50/80 dark:bg-indigo-950/30 p-3 rounded-2xl text-center">
+                    <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold">순수입 (수입-지출)</span>
+                    <div id="summaryNet" class="text-xs sm:text-sm font-extrabold text-indigo-700 dark:text-indigo-300 mt-1">0 원</div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-sm font-extrabold text-slate-800 dark:text-slate-100">📋 이번 달 거래 내역 모아보기</h3>
+                    <span id="monthlyItemCount" class="text-xs text-slate-500 font-bold">총 0건</span>
+                </div>
+                <div id="monthlyTransactionFeed" class="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                    <p class="text-xs text-slate-400 text-center py-6">이번 달 등록된 내역이 없습니다.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========================================== -->
+    <!-- 탭 2: 분석 & 전체 검색 영역                 -->
+    <!-- ========================================== -->
+    <section id="tab-analytics" class="tab-section hidden w-full max-w-5xl space-y-4">
+        <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h2 id="analyticsMonthTitle" class="text-lg font-extrabold text-slate-900 dark:text-white">2026년 11월 소비 리포트</h2>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">달력에서 선택한 월 기준으로 자동 분석됩니다</p>
+                </div>
+                <span id="expenseRatioBadge" class="px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 text-xs font-extrabold">
+                    지출률 0%
+                </span>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-800/70 p-4 rounded-2xl mb-4">
+                <div class="flex justify-between text-xs font-bold mb-2">
+                    <span class="text-blue-600 dark:text-blue-400">수입 대비 실제 지출 비율</span>
+                    <span id="analyticsRatioText" class="text-slate-700 dark:text-slate-200">0원 / 0원</span>
+                </div>
+                <div class="w-full h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div id="analyticsProgressBar" class="h-full bg-indigo-600 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-slate-200/70 dark:border-slate-700">
+                    <div>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400">일평균 실제 지출</span>
+                        <p id="analyticsDailyAvg" class="text-sm font-extrabold text-slate-800 dark:text-white mt-0.5">0 원</p>
+                    </div>
+                    <div>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400">최다 지출일</span>
+                        <p id="analyticsMaxDay" class="text-sm font-extrabold text-red-600 dark:text-red-400 mt-0.5">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-2.5">🏷️ 주요 지출 키워드 · 해시태그 분석</h3>
+                <div id="analyticsTagList" class="space-y-2">
+                    <p class="text-xs text-slate-400 text-center py-4">분석할 지출 내역이 없습니다.</p>
                 </div>
             </div>
         </div>
 
+        <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+            <h3 class="text-base font-extrabold text-slate-900 dark:text-white mb-3">🔍 전체 거래 내역 검색</h3>
+            <div class="flex flex-col sm:flex-row gap-2 mb-3">
+                <input type="text" id="globalSearchInput" placeholder="사유, 해시태그(#식비), 금액으로 검색..."
+                    class="flex-grow px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <select id="globalCategoryFilter" class="px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold focus:outline-none">
+                    <option value="ALL">전체 분류</option>
+                    <option value="수입">수입만</option>
+                    <option value="기타 지출">기타 지출만</option>
+                    <option value="예정 지출">예정 지출만</option>
+                </select>
+            </div>
+            <div id="globalSearchResults" class="space-y-2 max-h-[380px] overflow-y-auto pr-1"></div>
+        </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- 탭 3: 타임스탬프 메모 영역                 -->
+    <!-- ========================================== -->
+    <section id="tab-memo" class="tab-section hidden w-full max-w-5xl">
+        <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <span>📝</span> 타임스탬프 메모장
+                </h2>
+                <span id="memoCountBadge" class="text-xs font-bold text-slate-500">총 0개</span>
+            </div>
+
+            <div class="mb-4">
+                <textarea id="memoInput" placeholder="기록할 내용을 입력하세요... (작성 시각이 자동으로 기록됩니다)"
+                    class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none h-24"></textarea>
+                <button id="addMemoBtn" class="w-full bg-indigo-600 text-white py-2.5 rounded-xl hover:bg-indigo-700 transition font-bold text-sm shadow-sm mt-2">
+                    메모 등록하기
+                </button>
+            </div>
+
+            <input type="text" id="memoSearchInput" placeholder="메모 내용 검색..."
+                class="w-full mb-3 px-3.5 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+
+            <div id="memoList" class="space-y-2.5 max-h-[450px] overflow-y-auto pr-1">
+                <p class="text-xs text-slate-400 text-center py-6">저장된 메모가 없습니다.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ========================================== -->
+    <!-- 탭 4: 보안 · 알림(테스트 모드) · 테마 설정   -->
+    <!-- ========================================== -->
+    <section id="tab-settings" class="tab-section hidden w-full max-w-5xl space-y-4">
+        <!-- 보안 설정 카드 -->
+        <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
+            <h2 class="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>🔐</span> 보안 및 간편비밀번호 설정
+            </h2>
+
+            <div class="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                    <p class="text-sm font-bold text-slate-800 dark:text-slate-100">6자리 간편비밀번호 (PIN)</p>
+                    <p id="pinSettingStatusText" class="text-xs text-slate-500 dark:text-slate-400">확인 중...</p>
+                </div>
+                <div class="flex gap-1.5">
+                    <button id="openPinSetupBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition">
+                        설정 / 변경
+                    </button>
+                    <button id="removePinBtn" class="hidden bg-slate-100 dark:bg-slate-800 hover:bg-red-50 text-red-600 px-3 py-1.5 rounded-xl text-xs font-bold transition">
+                        해제
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between py-1">
+                <div>
+                    <p class="text-sm font-bold text-slate-800 dark:text-slate-100">페이지 새로고침 시 잠금 화면</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">PIN이 설정된 경우 재접속 시 6자리 인증을 요구합니다</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="autoLockToggle" class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+            </div>
+        </div>
+
+        <!-- 알림(테스트 모드 & 시점/시각) 및 화면 테마 설정 -->
+        <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
+            <h2 class="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>🔔</span> 예정 지출 알림 & 화면 테마
+            </h2>
+
+            <!-- 🧪 테스트 모드 스위치 -->
+            <div class="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+                <div class="pr-3">
+                    <div class="flex items-center gap-1.5">
+                        <p class="text-sm font-extrabold text-slate-800 dark:text-slate-100">🧪 알림 테스트 모드</p>
+                        <span id="testModeActivePill" class="hidden text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300">작동 중</span>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        켜면 날짜·시각에 관계없이 모든 예정 지출에 대해 텔레그램 메시지가 1회 발송되고 웹 팝업이 즉시 뜹니다
+                    </p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" id="testModeToggle" class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                </label>
+            </div>
+
+            <!-- 테스트 모드 ON일 때 표시되는 안내 & 재발송 테스트 버튼 -->
+            <div id="testModeInfoBox" class="hidden bg-purple-50/80 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-900/60 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <p class="text-xs text-purple-900 dark:text-purple-200 font-medium leading-relaxed">
+                    현재 <strong>테스트 모드</strong>가 켜져 있어 알림 시점·시각 설정이 비활성화되었습니다. 새 예정 지출을 추가하면 즉시 텔레그램으로 1회 전송됩니다.
+                </p>
+                <button type="button" id="retestTelegramBtn" class="shrink-0 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-xl text-xs font-bold transition shadow-2xs">
+                    미확인 내역 재발송 테스트
+                </button>
+            </div>
+
+            <!-- 일반 모드(테스트 모드 OFF)일 때 표시되는 알림 시점 & 알림 시각 설정 -->
+            <div id="normalScheduleSettings" class="bg-slate-50 dark:bg-slate-800/70 p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-700 space-y-3">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <p class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">📅 알림 시점</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">지출 예정일 며칠 전에 알림을 받을지 선택합니다</p>
+                    </div>
+                    <select id="notifyDaysBeforeSelect" class="border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-xs sm:text-sm bg-white dark:bg-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="0">당일 (D-Day)</option>
+                        <option value="1" selected>1일 전</option>
+                        <option value="2">2일 전</option>
+                        <option value="3">3일 전</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-200/70 dark:border-slate-700">
+                    <div>
+                        <p class="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">⏰ 알림 시각</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">텔레그램 메시지가 발송될 시각을 선택합니다</p>
+                    </div>
+                    <select id="notifyHourSelect" class="border border-slate-200 dark:border-slate-600 rounded-xl px-3 py-2 text-xs sm:text-sm bg-white dark:bg-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="0">오전 12:00 (00시)</option>
+                        <option value="7">오전 07:00</option>
+                        <option value="8">오전 08:00</option>
+                        <option value="9" selected>오전 09:00</option>
+                        <option value="10">오전 10:00</option>
+                        <option value="12">오후 12:00 (정오)</option>
+                        <option value="15">오후 03:00</option>
+                        <option value="18">오후 06:00</option>
+                        <option value="20">오후 08:00</option>
+                        <option value="21">오후 09:00</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 웹 팝업 알림 토글 -->
+            <div class="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
+                <div>
+                    <p class="text-sm font-bold text-slate-800 dark:text-slate-100">웹사이트 예정 지출 팝업 알림</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">가계부 접속 시 미확인 예정 지출을 팝업창으로 안내합니다</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="upcomingAlertToggle" class="sr-only peer" checked>
+                    <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+            </div>
+
+            <!-- 다크 모드 토글 -->
+            <div class="flex items-center justify-between py-1">
+                <div>
+                    <p class="text-sm font-bold text-slate-800 dark:text-slate-100">다크 모드</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">어두운 환경에서 눈이 편안한 다크 테마를 적용합니다</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="darkModeToggle" class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-200 dark:bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+            </div>
+        </div>
+
+        <!-- 계정 관리 -->
+        <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-3">
+            <h2 class="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span>👤</span> 계정 관리
+            </h2>
+            <div class="flex items-center justify-between py-1">
+                <div>
+                    <p class="text-sm font-bold text-slate-800 dark:text-slate-100">계정 로그인 비밀번호 변경</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">현재 로그인된 계정의 비밀번호를 새 비밀번호로 변경합니다</p>
+                </div>
+                <button id="openPasswordModalBtn" class="bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 px-3.5 py-2 rounded-xl text-xs font-bold transition">
+                    비밀번호 변경
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 모바일 하단 4단 탭바 -->
+    <nav class="md:hidden fixed bottom-0 inset-x-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 grid grid-cols-4 py-1.5 px-2 z-40">
+        <button data-tab="calendar" class="mobile-tab-btn flex flex-col items-center justify-center py-1 text-indigo-600 dark:text-indigo-400 font-extrabold">
+            <span class="text-lg">📅</span>
+            <span class="text-[10px] mt-0.5">캘린더</span>
+        </button>
+        <button data-tab="analytics" class="mobile-tab-btn flex flex-col items-center justify-center py-1 text-slate-400 font-semibold">
+            <span class="text-lg">📊</span>
+            <span class="text-[10px] mt-0.5">분석</span>
+        </button>
+        <button data-tab="memo" class="mobile-tab-btn flex flex-col items-center justify-center py-1 text-slate-400 font-semibold">
+            <span class="text-lg">📝</span>
+            <span class="text-[10px] mt-0.5">메모</span>
+        </button>
+        <button data-tab="settings" class="mobile-tab-btn flex flex-col items-center justify-center py-1 text-slate-400 font-semibold">
+            <span class="text-lg">⚙️</span>
+            <span class="text-[10px] mt-0.5">설정</span>
+        </button>
+    </nav>
+
+    <!-- ========================================== -->
+    <!-- 모달 1: 날짜별 상세 내역 시트               -->
+    <!-- ========================================== -->
+    <div id="dayModal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-md p-5 sm:p-6 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col max-h-[92vh]">
+            <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 id="modalDateTitle" class="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white">2026년 11월 1일 내역</h3>
+                <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 font-bold text-lg px-2">✕</button>
+            </div>
+
+            <div class="bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-2xl mb-3.5 border border-slate-200/70 dark:border-slate-700 space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <span id="formModeLabel" class="text-[11px] font-extrabold text-indigo-600 dark:text-indigo-400">새 거래 내역 입력</span>
+                    <button type="button" id="cancelEditBtn" class="hidden text-[11px] text-slate-500 hover:underline font-bold">수정 취소</button>
+                </div>
+
+                <div class="flex space-x-2">
+                    <select id="modalCategory" class="border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs sm:text-sm bg-white dark:bg-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="수입">수입 (+)</option>
+                        <option value="기타 지출">기타 지출 (-)</option>
+                        <option value="예정 지출">예정 지출 (-)</option>
+                    </select>
+                    <input type="text" id="modalAmount" inputmode="numeric" placeholder="금액 입력"
+                        class="flex-grow border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-right font-extrabold bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="flex flex-wrap gap-1.5">
+                    <button type="button" data-add="1000" class="quick-amt-btn px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-indigo-50">+1천</button>
+                    <button type="button" data-add="5000" class="quick-amt-btn px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-indigo-50">+5천</button>
+                    <button type="button" data-add="10000" class="quick-amt-btn px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-indigo-50">+1만</button>
+                    <button type="button" data-add="50000" class="quick-amt-btn px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-indigo-50">+5만</button>
+                    <button type="button" data-add="100000" class="quick-amt-btn px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-indigo-50">+10만</button>
+                    <button type="button" id="clearAmountBtn" class="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 ml-auto">초기화</button>
+                </div>
+
+                <div>
+                    <input type="text" id="modalReason" placeholder="사유 및 해시태그 (예: #식비 점심 식사)"
+                        class="w-full border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-slate-900">
+                </div>
+
+                <div class="flex flex-wrap gap-1">
+                    <button type="button" class="tag-chip px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 text-[11px] font-bold">#식비</button>
+                    <button type="button" class="tag-chip px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 text-[11px] font-bold">#카페</button>
+                    <button type="button" class="tag-chip px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 text-[11px] font-bold">#교통</button>
+                    <button type="button" class="tag-chip px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 text-[11px] font-bold">#쇼핑</button>
+                    <button type="button" class="tag-chip px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 text-[11px] font-bold">#고정비</button>
+                    <button type="button" class="tag-chip px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 text-[11px] font-bold">#월급</button>
+                </div>
+
+                <button id="addTransactionBtn" class="w-full bg-indigo-600 text-white py-2.5 rounded-xl hover:bg-indigo-700 transition font-bold text-sm shadow-sm">
+                    내역 추가하기
+                </button>
+            </div>
+
+            <div class="overflow-y-auto flex-grow space-y-2 pr-1 max-h-56" id="modalTransactionList">
+                <p class="text-xs text-slate-400 text-center py-4">등록된 내역이 없습니다.</p>
+            </div>
+
+            <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center font-bold">
+                <span class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">이 날의 실제 정산 합계</span>
+                <span id="modalDayTotal" class="text-base font-extrabold text-indigo-600 dark:text-indigo-400">0 원</span>
+            </div>
+        </div>
     </div>
 
-    <!-- 🤖 텔레그램 연동 전용 팝업창 -->
-    <div id="telegramModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-white w-full max-w-sm p-5 sm:p-6 rounded-2xl shadow-2xl flex flex-col">
-            <div class="flex justify-between items-center mb-4 border-b pb-3">
-                <h3 class="text-base sm:text-lg font-bold text-gray-800 flex items-center gap-1.5">
+    <!-- ========================================== -->
+    <!-- 모달 2: 텔레그램 연동 안내 팝업창            -->
+    <!-- ========================================== -->
+    <div id="telegramModal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-sm p-5 sm:p-6 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col">
+            <div class="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <h3 class="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
                     <span>🤖</span> 텔레그램 봇 연동 안내
                 </h3>
-                <button id="closeTelegramModalBtn" class="text-gray-400 hover:text-gray-600 font-bold text-lg px-2">✕</button>
+                <button id="closeTelegramModalBtn" class="text-slate-400 hover:text-slate-600 font-bold text-lg px-2">✕</button>
             </div>
 
             <div class="space-y-4">
-                <!-- 1단계: 인증 코드 복사 -->
                 <div>
-                    <p class="text-xs sm:text-sm font-medium text-gray-700 mb-2">1. 아래 인증 코드를 복사하세요.</p>
-                    <div class="bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 flex justify-between items-center">
-                        <span id="telegramModalCode" class="text-base sm:text-lg font-extrabold text-blue-700 tracking-tight">코드 0000</span>
-                        <button id="copyTelegramCodeBtn" type="button" class="bg-gray-800 hover:bg-gray-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm whitespace-nowrap">
+                    <p class="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">1. 아래 인증 코드를 복사하세요.</p>
+                    <div class="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3.5 py-2.5 flex justify-between items-center">
+                        <span id="telegramModalCode" class="text-base sm:text-lg font-extrabold text-blue-600 dark:text-blue-400 tracking-tight">코드 0000</span>
+                        <button id="copyTelegramCodeBtn" type="button" class="bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-2xs whitespace-nowrap">
                             📋 복사
                         </button>
                     </div>
                 </div>
 
-                <!-- 2단계: 봇 바로 열기 -->
                 <div>
-                    <p class="text-xs sm:text-sm font-medium text-gray-700 mb-2">2. 봇 채팅방에 들어가 붙여넣으세요.</p>
+                    <p class="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">2. 봇 채팅방에 들어가 붙여넣으세요.</p>
                     <a href="https://t.me/walletmg_bot" target="_blank" rel="noopener noreferrer"
-                       class="w-full bg-sky-500 hover:bg-sky-600 text-white py-3 rounded-xl font-bold text-sm shadow-md transition flex items-center justify-center gap-2">
+                       class="w-full bg-sky-500 hover:bg-sky-600 text-white py-3 rounded-2xl font-bold text-sm shadow-md transition flex items-center justify-center gap-2">
                         <span>✈️</span> 텔레그램 봇 바로 열기
                     </a>
-                    <p class="text-[11px] text-gray-500 mt-2 leading-relaxed">
-                        * 봇 채팅방에 처음 들어가면 하단 <span class="font-bold text-gray-700">[시작]</span>을 누른 뒤 복사한 코드를 전송해 주세요.
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                        * 봇 채팅방에 처음 들어가면 하단 <span class="font-bold text-slate-700 dark:text-slate-200">[시작]</span>을 누른 뒤 복사한 코드를 전송해 주세요.
                     </p>
                 </div>
 
-                <!-- 텔레그램 미설치자 안내 -->
-                <div class="pt-3 border-t text-center">
-                    <p class="text-[11px] text-gray-400 mb-1.5">텔레그램이 설치되어 있지 않으신가요?</p>
-                    <div class="flex justify-center items-center gap-3 text-xs font-medium text-blue-600">
-                        <a href="https://apps.apple.com/app/telegram-messenger/id686449807" target="_blank" rel="noopener noreferrer" class="hover:underline">
-                            아이폰 앱 설치
-                        </a>
-                        <span class="text-gray-300">|</span>
-                        <a href="https://play.google.com/store/apps/details?id=org.telegram.messenger" target="_blank" rel="noopener noreferrer" class="hover:underline">
-                            안드로이드 앱 설치
-                        </a>
+                <div class="pt-3 border-t border-slate-100 dark:border-slate-800 text-center">
+                    <p class="text-[11px] text-slate-400 mb-1.5">텔레그램이 설치되어 있지 않으신가요?</p>
+                    <div class="flex justify-center items-center gap-3 text-xs font-bold text-blue-600 dark:text-blue-400">
+                        <a href="https://apps.apple.com/app/telegram-messenger/id686449807" target="_blank" rel="noopener noreferrer" class="hover:underline">아이폰 앱 설치</a>
+                        <span class="text-slate-300">|</span>
+                        <a href="https://play.google.com/store/apps/details?id=org.telegram.messenger" target="_blank" rel="noopener noreferrer" class="hover:underline">안드로이드 앱 설치</a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 날짜별 상세 내역 모달 (팝업창) -->
-    <div id="dayModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50 p-4">
-        <div class="bg-white w-full max-w-md p-5 sm:p-6 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
-            <div class="flex justify-between items-center mb-4 border-b pb-3">
-                <h3 id="modalDateTitle" class="text-base sm:text-lg font-bold text-gray-800">2026년 11월 1일 내역</h3>
-                <button id="closeModalBtn" class="text-gray-400 hover:text-gray-600 font-bold text-lg px-2">✕</button>
+    <!-- ========================================== -->
+    <!-- 모달 3: 6자리 PIN 설정/변경 모달            -->
+    <!-- ========================================== -->
+    <div id="pinSetupModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-sm p-6 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col items-center">
+            <div class="w-full flex justify-between items-center mb-2">
+                <span class="text-xs font-extrabold text-indigo-600 dark:text-indigo-400">간편비밀번호 설정</span>
+                <button id="closePinSetupModalBtn" class="text-slate-400 hover:text-slate-600 font-bold px-2">✕</button>
+            </div>
+            <h3 id="pinSetupTitle" class="text-lg font-extrabold text-slate-900 dark:text-white">새 6자리 PIN 입력</h3>
+            <p id="pinSetupDesc" class="text-xs text-slate-500 dark:text-slate-400 mt-1">로그인과 잠금 해제에 사용할 숫자 6자리</p>
+
+            <div id="pinSetupDots" class="flex items-center justify-center gap-3.5 my-6">
+                <span class="setup-dot w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 transition-all duration-150"></span>
+                <span class="setup-dot w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 transition-all duration-150"></span>
+                <span class="setup-dot w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 transition-all duration-150"></span>
+                <span class="setup-dot w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 transition-all duration-150"></span>
+                <span class="setup-dot w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 transition-all duration-150"></span>
+                <span class="setup-dot w-3.5 h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 transition-all duration-150"></span>
             </div>
 
-            <!-- 항목 추가 입력폼 (수입, 기타 지출, 예정 지출만 유지) -->
-            <div class="bg-gray-50 p-3 rounded-xl mb-4 border space-y-2">
-                <div class="flex space-x-2">
-                    <select id="modalCategory" class="border rounded-lg px-2 py-1.5 text-sm bg-white font-medium focus:outline-blue-500">
-                        <option value="수입">수입 (+)</option>
-                        <option value="기타 지출">기타 지출 (-)</option>
-                        <option value="예정 지출">예정 지출 (-)</option>
-                    </select>
-                    <input type="text" id="modalAmount" placeholder="금액 입력" class="flex-grow border rounded-lg px-3 py-1.5 text-sm text-right focus:outline-blue-500">
+            <p id="pinSetupError" class="text-xs text-red-500 font-semibold h-4 mb-2 text-center"></p>
+            <div id="pinSetupKeypad" class="grid grid-cols-3 gap-2.5 w-full max-w-[260px]"></div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 모달 4: 계정 비밀번호 변경 시트              -->
+    <!-- ========================================== -->
+    <div id="passwordChangeModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
+        <div class="bg-white dark:bg-slate-900 w-full max-w-sm p-6 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-100 dark:border-slate-800">
+                <h3 class="text-base font-extrabold text-slate-900 dark:text-white">🔑 계정 비밀번호 변경</h3>
+                <button id="closePasswordModalBtn" class="text-slate-400 hover:text-slate-600 font-bold px-2">✕</button>
+            </div>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">현재 비밀번호</label>
+                    <input type="password" id="currentAccountPw" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="현재 비밀번호 입력">
                 </div>
                 <div>
-                    <input type="text" id="modalReason" placeholder="기타 사유 입력 (예: 카드값 출금)" class="w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-blue-500 bg-white">
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">새 비밀번호</label>
+                    <input type="password" id="newAccountPw" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="새 비밀번호 입력">
                 </div>
-                <button id="addTransactionBtn" class="w-full bg-indigo-500 text-white py-2 rounded-lg hover:bg-indigo-600 transition font-medium text-sm shadow">
-                    내역 추가하기
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">새 비밀번호 확인</label>
+                    <input type="password" id="confirmAccountPw" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="새 비밀번호 다시 입력">
+                </div>
+                <button id="submitPasswordChangeBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-sm font-bold transition mt-2">
+                    비밀번호 변경 저장
                 </button>
-            </div>
-
-            <!-- 해당 일자 내역 리스트 -->
-            <div class="overflow-y-auto flex-grow space-y-2 pr-1 max-h-60" id="modalTransactionList">
-                <p class="text-xs text-gray-400 text-center py-4">등록된 내역이 없습니다.</p>
-            </div>
-
-            <!-- 일자별 합계 -->
-            <div class="mt-4 pt-3 border-t flex justify-between items-center font-bold">
-                <span class="text-sm text-gray-600">이 날의 정산 합계</span>
-                <span id="modalDayTotal" class="text-base text-indigo-600">0 원</span>
             </div>
         </div>
     </div>
 
-    <!-- Firebase 및 로직 스크립트 -->
+    <!-- Firebase 및 대시보드 스크립트 -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut, deleteUser } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signOut, deleteUser, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const BOT_SERVER_URL = "https://telegram-wallet-bot-ht1m.onrender.com";
 
-        // 넷리파이 배지 강제 삭제 실행 스크립트
+        // 넷리파이 배지 제거
         window.addEventListener('DOMContentLoaded', () => {
             const removeBadge = () => {
                 document.querySelectorAll('iframe, div, a').forEach(el => {
-                    if ((el.src && el.src.includes('netlify')) || 
-                        (el.id && el.id.includes('netlify')) || 
+                    if ((el.src && el.src.includes('netlify')) ||
+                        (el.id && el.id.includes('netlify')) ||
                         (el.className && typeof el.className === 'string' && el.className.includes('netlify')) ||
                         (el.innerText && el.innerText.includes('Powered by Netlify'))) {
                         el.remove();
@@ -276,32 +694,297 @@
 
         let currentUser = null;
         let currentUsername = "";
-        let currentDate = new Date(2026, 10, 1); // 기본 2026년 11월
+        let currentDate = new Date();
         let selectedDateStr = "";
-        let userData = { 거래내역: {}, 메모: [], telegram: null };
+        let editingIndex = null;
+        let userData = {
+            거래내역: {},
+            메모: [],
+            telegram: null,
+            notificationSettings: { testMode: false, daysBefore: 1, notifyHour: 9 }
+        };
         let unsubscribeUserDoc = null;
+        let upcomingAlertShownThisSession = false;
 
-        // 금액 입력 시 자동 콤마 및 마이너스 포맷팅
-        const modalAmountInput = document.getElementById('modalAmount');
-        modalAmountInput.addEventListener('input', (e) => {
-            let val = e.target.value;
-            let hasMinus = val.startsWith('-');
-            let numbers = val.replace(/[^0-9]/g, '');
-            if (val === '-' || (hasMinus && numbers === '')) {
-                e.target.value = '-';
-            } else if (numbers === '') {
-                e.target.value = '';
+        // ==========================================
+        // 유틸리티
+        // ==========================================
+        async function sha256(text) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(text);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function getSavedPinData() {
+            try {
+                const raw = localStorage.getItem('mg_pin_data');
+                return raw ? JSON.parse(raw) : null;
+            } catch {
+                return null;
+            }
+        }
+
+        function updateDots(selector, length) {
+            document.querySelectorAll(selector).forEach((dot, idx) => {
+                if (idx < length) {
+                    dot.classList.remove('bg-slate-200', 'dark:bg-slate-700');
+                    dot.classList.add('bg-indigo-600', 'scale-110');
+                } else {
+                    dot.classList.add('bg-slate-200', 'dark:bg-slate-700');
+                    dot.classList.remove('bg-indigo-600', 'scale-110');
+                }
+            });
+        }
+
+        function renderKeypad(containerEl, onDigit, onDelete) {
+            containerEl.innerHTML = '';
+            const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
+            keys.forEach(key => {
+                if (key === '') {
+                    containerEl.appendChild(document.createElement('div'));
+                    return;
+                }
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                if (key === '⌫') {
+                    btn.className = "keypad-btn py-3 rounded-2xl text-lg font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 transition";
+                    btn.innerText = '⌫';
+                    btn.addEventListener('click', onDelete);
+                } else {
+                    btn.className = "keypad-btn py-3 rounded-2xl text-xl font-extrabold text-slate-800 dark:text-slate-100 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 active:scale-95 transition";
+                    btn.innerText = key;
+                    btn.addEventListener('click', () => onDigit(key));
+                }
+                containerEl.appendChild(btn);
+            });
+        }
+
+        // ==========================================
+        // 0. 테마, 잠금 화면, 테스트 모드 & 시점·시각 설정
+        // ==========================================
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        if (localStorage.getItem('mg_theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+            darkModeToggle.checked = true;
+        }
+        darkModeToggle.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('mg_theme', 'dark');
             } else {
-                e.target.value = (hasMinus ? '-' : '') + Number(numbers).toLocaleString();
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('mg_theme', 'light');
             }
         });
 
-        // 1. 로그인 상태 확인 및 실시간 DB 동기화 구독
+        const upcomingAlertToggle = document.getElementById('upcomingAlertToggle');
+        upcomingAlertToggle.checked = localStorage.getItem('mg_upcoming_alert') !== 'false';
+        upcomingAlertToggle.addEventListener('change', (e) => {
+            localStorage.setItem('mg_upcoming_alert', e.target.checked ? 'true' : 'false');
+        });
+
+        const autoLockToggle = document.getElementById('autoLockToggle');
+        autoLockToggle.checked = localStorage.getItem('mg_auto_lock') === 'true';
+        autoLockToggle.addEventListener('change', (e) => {
+            if (e.target.checked && !getSavedPinData()) {
+                alert('먼저 6자리 간편비밀번호(PIN)를 설정해주세요.');
+                e.target.checked = false;
+                return;
+            }
+            localStorage.setItem('mg_auto_lock', e.target.checked ? 'true' : 'false');
+        });
+
+        // 테스트 모드 & 알림 시점/시각 UI 동기화 및 Firestore 저장
+        const testModeToggle = document.getElementById('testModeToggle');
+        const notifyDaysBeforeSelect = document.getElementById('notifyDaysBeforeSelect');
+        const notifyHourSelect = document.getElementById('notifyHourSelect');
+
+        function applyNotificationSettingsUI() {
+            const settings = userData.notificationSettings || { testMode: false, daysBefore: 1, notifyHour: 9 };
+            const isTest = Boolean(settings.testMode);
+
+            testModeToggle.checked = isTest;
+            notifyDaysBeforeSelect.value = String(settings.daysBefore ?? 1);
+            notifyHourSelect.value = String(settings.notifyHour ?? 9);
+
+            const normalBox = document.getElementById('normalScheduleSettings');
+            const testInfoBox = document.getElementById('testModeInfoBox');
+            const testPill = document.getElementById('testModeActivePill');
+            const headerBadge = document.getElementById('headerTestModeBadge');
+
+            if (isTest) {
+                normalBox.classList.add('hidden');
+                testInfoBox.classList.remove('hidden');
+                testPill.classList.remove('hidden');
+                headerBadge.classList.remove('hidden');
+            } else {
+                normalBox.classList.remove('hidden');
+                testInfoBox.classList.add('hidden');
+                testPill.classList.add('hidden');
+                headerBadge.classList.add('hidden');
+            }
+        }
+
+        async function saveNotificationSettings(triggerImmediatePopup = false) {
+            if (!currentUsername) return;
+            const newSettings = {
+                testMode: testModeToggle.checked,
+                daysBefore: Number(notifyDaysBeforeSelect.value),
+                notifyHour: Number(notifyHourSelect.value)
+            };
+            userData.notificationSettings = newSettings;
+            applyNotificationSettingsUI();
+
+            try {
+                const userDocRef = doc(db, "users", currentUsername);
+                await setDoc(userDocRef, { notificationSettings: newSettings }, { merge: true });
+                fetch(`${BOT_SERVER_URL}/sync`, { method: 'POST' }).catch(() => {});
+
+                if (triggerImmediatePopup && newSettings.testMode) {
+                    upcomingAlertShownThisSession = false;
+                    sessionStorage.removeItem(`mg_dismiss_alert_${getFormattedDate(new Date())}`);
+                    checkUpcomingExpensesAlert(true);
+                }
+            } catch (err) {
+                console.error("알림 설정 저장 실패:", err);
+            }
+        }
+
+        testModeToggle.addEventListener('change', () => saveNotificationSettings(true));
+        notifyDaysBeforeSelect.addEventListener('change', () => saveNotificationSettings(false));
+        notifyHourSelect.addEventListener('change', () => saveNotificationSettings(false));
+
+        // 테스트 모드에서 '미확인 내역 재발송 테스트' 버튼 클릭 시
+        document.getElementById('retestTelegramBtn').addEventListener('click', async () => {
+            if (!currentUsername) return;
+            const txMap = userData.거래내역 || {};
+            let resetCount = 0;
+
+            for (const dateStr of Object.keys(txMap)) {
+                txMap[dateStr].forEach(item => {
+                    if (item.분류 === '예정 지출' && !item.알림확인) {
+                        item.알림발송됨 = false;
+                        resetCount++;
+                    }
+                });
+            }
+
+            if (resetCount === 0) {
+                alert('미확인 상태의 예정 지출 내역이 없습니다. 캘린더에서 예정 지출을 먼저 등록해 주세요.');
+                return;
+            }
+
+            try {
+                const userDocRef = doc(db, "users", currentUsername);
+                await updateDoc(userDocRef, { 거래내역: txMap });
+                fetch(`${BOT_SERVER_URL}/sync`, { method: 'POST' }).catch(() => {});
+                alert(`미확인 예정 지출 ${resetCount}건에 대해 텔레그램 테스트 발송을 요청했습니다!`);
+            } catch (err) {
+                alert('재발송 요청 실패: ' + err.message);
+            }
+        });
+
+        // 앱 잠금 화면
+        let lockEnteredPin = "";
+        function lockApp() {
+            const pinData = getSavedPinData();
+            if (!pinData || !pinData.pinHash) {
+                alert('6자리 간편비밀번호가 설정되어 있지 않습니다. [설정] 탭에서 먼저 등록해주세요.');
+                return;
+            }
+            sessionStorage.removeItem('mg_unlocked');
+            lockEnteredPin = "";
+            updateDots('.lock-dot', 0);
+            document.getElementById('lockErrorMsg').innerText = "";
+            document.getElementById('appLockOverlay').classList.remove('hidden');
+            document.getElementById('appLockOverlay').classList.add('flex');
+        }
+
+        renderKeypad(
+            document.getElementById('lockKeypad'),
+            async (digit) => {
+                if (lockEnteredPin.length >= 6) return;
+                lockEnteredPin += digit;
+                updateDots('.lock-dot', lockEnteredPin.length);
+                if (lockEnteredPin.length === 6) {
+                    const pinData = getSavedPinData();
+                    const h = await sha256(lockEnteredPin);
+                    if (pinData && h === pinData.pinHash) {
+                        sessionStorage.setItem('mg_unlocked', 'true');
+                        document.getElementById('appLockOverlay').classList.add('hidden');
+                        document.getElementById('appLockOverlay').classList.remove('flex');
+                        lockEnteredPin = "";
+                    } else {
+                        const container = document.getElementById('lockDotsContainer');
+                        container.classList.add('animate-shake');
+                        document.getElementById('lockErrorMsg').innerText = "비밀번호가 일치하지 않습니다.";
+                        setTimeout(() => {
+                            container.classList.remove('animate-shake');
+                            lockEnteredPin = "";
+                            updateDots('.lock-dot', 0);
+                        }, 450);
+                    }
+                }
+            },
+            () => {
+                if (lockEnteredPin.length === 0) return;
+                lockEnteredPin = lockEnteredPin.slice(0, -1);
+                updateDots('.lock-dot', lockEnteredPin.length);
+            }
+        );
+
+        document.getElementById('headerLockBtn').addEventListener('click', lockApp);
+        document.getElementById('desktopLockBtn').addEventListener('click', lockApp);
+        document.getElementById('lockLogoutBtn').addEventListener('click', async () => {
+            localStorage.removeItem('loginExpireTime');
+            await signOut(auth);
+            location.href = 'index.html';
+        });
+
+        // 4단 탭 전환
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-section').forEach(sec => sec.classList.add('hidden'));
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+                if (btn.dataset.tab === tabName) {
+                    btn.className = "nav-tab-btn py-2.5 rounded-xl text-sm font-extrabold transition flex items-center justify-center gap-1.5 bg-indigo-600 text-white shadow-sm";
+                } else {
+                    btn.className = "nav-tab-btn py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center justify-center gap-1.5";
+                }
+            });
+
+            document.querySelectorAll('.mobile-tab-btn').forEach(btn => {
+                if (btn.dataset.tab === tabName) {
+                    btn.className = "mobile-tab-btn flex flex-col items-center justify-center py-1 text-indigo-600 dark:text-indigo-400 font-extrabold";
+                } else {
+                    btn.className = "mobile-tab-btn flex flex-col items-center justify-center py-1 text-slate-400 font-semibold";
+                }
+            });
+
+            if (tabName === 'analytics') renderAnalyticsAndSearch();
+        }
+
+        document.querySelectorAll('.nav-tab-btn, .mobile-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+
+        // ==========================================
+        // 1. 로그인 상태 확인 및 실시간 DB 동기화
+        // ==========================================
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
                 currentUsername = user.email ? user.email.split('@')[0] : 'user';
                 document.getElementById('userWelcome').innerText = `${currentUsername}님 환영합니다!`;
+
+                refreshPinSettingsUI();
+
+                const pinData = getSavedPinData();
+                if (pinData && pinData.username === currentUsername && localStorage.getItem('mg_auto_lock') === 'true' && sessionStorage.getItem('mg_unlocked') !== 'true') {
+                    lockApp();
+                }
 
                 subscribeUserData();
             } else {
@@ -311,18 +994,45 @@
             }
         });
 
-        // 월 이동 버튼 이벤트
+        function refreshPinSettingsUI() {
+            const pinData = getSavedPinData();
+            const isRegistered = pinData && pinData.username === currentUsername;
+            const statusText = document.getElementById('pinSettingStatusText');
+            const removeBtn = document.getElementById('removePinBtn');
+            const headerLock = document.getElementById('headerLockBtn');
+            const desktopLock = document.getElementById('desktopLockBtn');
+
+            if (isRegistered) {
+                statusText.innerHTML = `<span class="text-green-600 dark:text-green-400 font-bold">등록 완료</span> (6자리 간편비밀번호 사용 중)`;
+                removeBtn.classList.remove('hidden');
+                headerLock.classList.remove('hidden');
+                desktopLock.classList.remove('hidden');
+            } else {
+                statusText.innerText = "미등록 (설정 시 6자리 숫자로 빠른 로그인 및 앱 잠금 가능)";
+                removeBtn.classList.add('hidden');
+                headerLock.classList.add('hidden');
+                desktopLock.classList.add('hidden');
+            }
+        }
+
         document.getElementById('prevMonthBtn').addEventListener('click', () => {
             currentDate.setMonth(currentDate.getMonth() - 1);
             renderCalendarAndSummary();
+            renderAnalyticsAndSearch();
         });
 
         document.getElementById('nextMonthBtn').addEventListener('click', () => {
             currentDate.setMonth(currentDate.getMonth() + 1);
             renderCalendarAndSummary();
+            renderAnalyticsAndSearch();
         });
 
-        // 실시간 DB 감지 (텔레그램 인증 완료 / 확인 버튼 클릭 시 새로고침 없이 즉시 반영)
+        document.getElementById('todayMonthBtn').addEventListener('click', () => {
+            currentDate = new Date();
+            renderCalendarAndSummary();
+            renderAnalyticsAndSearch();
+        });
+
         function subscribeUserData() {
             if (unsubscribeUserDoc) unsubscribeUserDoc();
             const userDocRef = doc(db, "users", currentUsername);
@@ -332,14 +1042,24 @@
                     userData = docSnap.data();
                     if (!userData.거래내역) userData.거래내역 = {};
                     if (!userData.메모) userData.메모 = [];
+                    if (!userData.notificationSettings) {
+                        userData.notificationSettings = { testMode: false, daysBefore: 1, notifyHour: 9 };
+                    }
                 } else {
-                    userData = { 거래내역: {}, 메모: [] };
+                    userData = {
+                        거래내역: {},
+                        메모: [],
+                        notificationSettings: { testMode: false, daysBefore: 1, notifyHour: 9 }
+                    };
                     await setDoc(userDocRef, userData, { merge: true });
                 }
 
+                applyNotificationSettingsUI();
                 updateTelegramUI();
                 renderCalendarAndSummary();
+                renderAnalyticsAndSearch();
                 renderMemos();
+                checkUpcomingExpensesAlert();
 
                 if (!document.getElementById('dayModal').classList.contains('hidden') && selectedDateStr) {
                     renderDayTransactions();
@@ -349,32 +1069,142 @@
             });
         }
 
-        // 🤖 텔레그램 연동 UI 업데이트 함수 (모바일 한 줄 정렬 + 연동 완료 시 팝업 자동 닫힘)
+        // ==========================================
+        // 2. 예정 지출 알림 팝업 (테스트 모드 vs 일반 시점 기준)
+        // ==========================================
+        function getFormattedDate(dateObj) {
+            return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+        }
+
+        function checkUpcomingExpensesAlert(forceRun = false) {
+            if (!forceRun && upcomingAlertShownThisSession) return;
+            if (localStorage.getItem('mg_upcoming_alert') === 'false') return;
+
+            const today = new Date();
+            const todayStr = getFormattedDate(today);
+            if (!forceRun && sessionStorage.getItem(`mg_dismiss_alert_${todayStr}`) === 'true') return;
+
+            const settings = userData.notificationSettings || { testMode: false, daysBefore: 1, notifyHour: 9 };
+            const isTest = Boolean(settings.testMode);
+            const daysBefore = Number(settings.daysBefore ?? 1);
+
+            const upcomingItems = [];
+            const txMap = userData.거래내역 || {};
+
+            if (isTest) {
+                // 🧪 테스트 모드: 날짜에 관계없이 모든 미확인 예정 지출 수집
+                Object.keys(txMap).sort().forEach(dStr => {
+                    (txMap[dStr] || []).forEach((item, idx) => {
+                        if (item.분류 === '예정 지출' && !item.알림확인) {
+                            upcomingItems.push({
+                                dateStr: dStr,
+                                label: `예정일 ${dStr}`,
+                                index: idx,
+                                ...item
+                            });
+                        }
+                    });
+                });
+            } else {
+                // ⏰ 일반 모드: 오늘(0)부터 설정된 daysBefore일 후까지의 예정 지출 수집
+                for (let offset = 0; offset <= daysBefore; offset++) {
+                    const targetDate = new Date();
+                    targetDate.setDate(today.getDate() + offset);
+                    const dStr = getFormattedDate(targetDate);
+                    const label = offset === 0 ? '오늘 출금 예정' : (offset === 1 ? '내일 출금 예정' : `${offset}일 후 출금 예정`);
+
+                    (txMap[dStr] || []).forEach((item, idx) => {
+                        if (item.분류 === '예정 지출' && !item.알림확인) {
+                            upcomingItems.push({
+                                dateStr: dStr,
+                                label,
+                                index: idx,
+                                ...item
+                            });
+                        }
+                    });
+                }
+            }
+
+            if (upcomingItems.length === 0) return;
+
+            upcomingAlertShownThisSession = true;
+            const testBadge = document.getElementById('popupTestBadge');
+            const subTitle = document.getElementById('upcomingAlertSubtitle');
+            if (isTest) {
+                testBadge.classList.remove('hidden');
+                subTitle.innerText = "테스트 모드: 모든 미확인 예정 지출이 표시됩니다";
+            } else {
+                testBadge.classList.add('hidden');
+                subTitle.innerText = "곧 출금 예정인 내역을 확인하세요";
+            }
+
+            const listEl = document.getElementById('upcomingAlertList');
+            listEl.innerHTML = '';
+
+            upcomingItems.forEach(item => {
+                const amt = Number(String(item.금액).replace(/,/g, '')) || 0;
+                const row = document.createElement('div');
+                row.className = "p-3 rounded-2xl bg-orange-50/90 dark:bg-orange-950/40 border border-orange-200/70 dark:border-orange-900/60 flex justify-between items-center gap-2";
+                row.innerHTML = `
+                    <div class="min-w-0">
+                        <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-orange-200/80 dark:bg-orange-900 text-orange-800 dark:text-orange-200">${item.label}</span>
+                        <p class="text-sm font-extrabold text-slate-900 dark:text-white mt-1">-${Math.abs(amt).toLocaleString()} 원</p>
+                        <p class="text-xs text-slate-600 dark:text-slate-300 truncate">${escapeHtml(item.기타사유 || '예정 지출')}</p>
+                    </div>
+                    <button type="button" class="confirm-upcoming-btn shrink-0 bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition">
+                        확인 완료
+                    </button>
+                `;
+                row.querySelector('.confirm-upcoming-btn').addEventListener('click', async () => {
+                    userData.거래내역[item.dateStr][item.index].알림확인 = true;
+                    const userDocRef = doc(db, "users", currentUsername);
+                    await updateDoc(userDocRef, { 거래내역: userData.거래내역 });
+                    row.remove();
+                    if (listEl.children.length === 0) {
+                        document.getElementById('upcomingAlertModal').classList.add('hidden');
+                    }
+                });
+                listEl.appendChild(row);
+            });
+
+            document.getElementById('upcomingAlertModal').classList.remove('hidden');
+        }
+
+        document.getElementById('closeUpcomingAlertBtn').addEventListener('click', () => {
+            document.getElementById('upcomingAlertModal').classList.add('hidden');
+        });
+        document.getElementById('dismissAllUpcomingBtn').addEventListener('click', () => {
+            sessionStorage.setItem(`mg_dismiss_alert_${getFormattedDate(new Date())}`, 'true');
+            document.getElementById('upcomingAlertModal').classList.add('hidden');
+        });
+
+        // ==========================================
+        // 3. 텔레그램 연동 UI & 이벤트
+        // ==========================================
         function updateTelegramUI() {
             const statusEl = document.getElementById('telegramStatusText');
             const btnEl = document.getElementById('telegramLinkBtn');
             const modalEl = document.getElementById('telegramModal');
 
             if (userData.telegram && userData.telegram.chatId) {
-                statusEl.innerHTML = `상태: <span class="font-bold text-green-700">연동 완료 (알림 수신 중)</span>`;
+                statusEl.innerHTML = `상태: <span class="font-bold text-green-700 dark:text-green-400">연동 완료 (알림 수신 중)</span>`;
                 btnEl.innerText = "연동 해제";
-                btnEl.className = "bg-red-500 text-white px-2.5 py-1.5 sm:px-3 rounded-lg hover:bg-red-600 transition text-[11px] sm:text-xs font-medium shadow whitespace-nowrap";
+                btnEl.className = "bg-red-500 text-white px-3 py-1.5 rounded-xl hover:bg-red-600 transition text-xs font-bold shadow-2xs whitespace-nowrap";
                 modalEl.classList.add('hidden');
             } else if (userData.telegram && userData.telegram.authCode) {
-                statusEl.innerHTML = `대기 중 (<span class="font-bold text-orange-600">${userData.telegram.authCode}</span>)`;
+                statusEl.innerHTML = `대기 중 (<span class="font-bold text-orange-600 dark:text-orange-400">${userData.telegram.authCode}</span>)`;
                 btnEl.innerText = "연동 코드 재확인";
-                btnEl.className = "bg-orange-500 text-white px-2.5 py-1.5 sm:px-3 rounded-lg hover:bg-orange-600 transition text-[11px] sm:text-xs font-medium shadow whitespace-nowrap";
+                btnEl.className = "bg-orange-500 text-white px-3 py-1.5 rounded-xl hover:bg-orange-600 transition text-xs font-bold shadow-2xs whitespace-nowrap";
             } else {
-                statusEl.innerHTML = `상태: <span class="text-gray-500">미연동 (알림 받기 연동 필요)</span>`;
+                statusEl.innerHTML = `상태: <span class="text-slate-500 dark:text-slate-400">미연동 (알림 받기 연동 필요)</span>`;
                 btnEl.innerText = "텔레그램 연동하기";
-                btnEl.className = "bg-blue-600 text-white px-2.5 py-1.5 sm:px-3 rounded-lg hover:bg-blue-700 transition text-[11px] sm:text-xs font-medium shadow whitespace-nowrap";
+                btnEl.className = "bg-blue-600 text-white px-3 py-1.5 rounded-xl hover:bg-blue-700 transition text-xs font-bold shadow-2xs whitespace-nowrap";
             }
         }
 
-        // 🤖 텔레그램 연동 버튼 클릭 이벤트 (전용 팝업 열기)
         document.getElementById('telegramLinkBtn').addEventListener('click', async () => {
             const userDocRef = doc(db, "users", currentUsername);
-
             try {
                 const latestSnap = await getDoc(userDocRef);
                 if (latestSnap.exists()) {
@@ -394,7 +1224,6 @@
                 return;
             }
 
-            // 인증 코드가 없거나 예전 영문 코드일 경우 '코드 XXXX'로 새로 생성
             if (!userData.telegram || !userData.telegram.authCode || !userData.telegram.authCode.startsWith('코드 ')) {
                 const randomCode = '코드 ' + Math.floor(1000 + Math.random() * 9000);
                 userData.telegram = { authCode: randomCode, chatId: null };
@@ -403,30 +1232,23 @@
 
             const code = userData.telegram.authCode;
             updateTelegramUI();
-
             document.getElementById('telegramModalCode').innerText = code;
             document.getElementById('telegramModal').classList.remove('hidden');
         });
 
-        // 텔레그램 전용 팝업 닫기 이벤트
         document.getElementById('closeTelegramModalBtn').addEventListener('click', () => {
             document.getElementById('telegramModal').classList.add('hidden');
         });
-
         document.getElementById('telegramModal').addEventListener('click', (e) => {
-            if (e.target.id === 'telegramModal') {
-                document.getElementById('telegramModal').classList.add('hidden');
-            }
+            if (e.target.id === 'telegramModal') document.getElementById('telegramModal').classList.add('hidden');
         });
 
-        // 인증 코드 원터치 복사 버튼 이벤트
         document.getElementById('copyTelegramCodeBtn').addEventListener('click', async () => {
             const codeText = document.getElementById('telegramModalCode').innerText.trim();
             const btn = document.getElementById('copyTelegramCodeBtn');
-
             try {
                 await navigator.clipboard.writeText(codeText);
-            } catch (err) {
+            } catch {
                 const tempInput = document.createElement('textarea');
                 tempInput.value = codeText;
                 document.body.appendChild(tempInput);
@@ -434,26 +1256,63 @@
                 document.execCommand('copy');
                 document.body.removeChild(tempInput);
             }
-
             btn.innerText = '✅ 복사됨';
-            btn.className = 'bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm whitespace-nowrap';
+            btn.className = 'bg-green-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-2xs whitespace-nowrap';
             setTimeout(() => {
                 btn.innerText = '📋 복사';
-                btn.className = 'bg-gray-800 hover:bg-gray-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm whitespace-nowrap';
+                btn.className = 'bg-slate-800 hover:bg-slate-900 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition shadow-2xs whitespace-nowrap';
             }, 2000);
         });
 
-        // 달력 및 요약 통계 렌더링
+        // ==========================================
+        // 4. 캘린더, 빠른 금액 버튼, 수정/삭제 로직
+        // ==========================================
+        const modalAmountInput = document.getElementById('modalAmount');
+        modalAmountInput.addEventListener('input', (e) => {
+            let val = e.target.value;
+            let hasMinus = val.startsWith('-');
+            let numbers = val.replace(/[^0-9]/g, '');
+            if (val === '-' || (hasMinus && numbers === '')) {
+                e.target.value = '-';
+            } else if (numbers === '') {
+                e.target.value = '';
+            } else {
+                e.target.value = (hasMinus ? '-' : '') + Number(numbers).toLocaleString();
+            }
+        });
+
+        document.querySelectorAll('.quick-amt-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const addVal = Number(btn.dataset.add) || 0;
+                const currentNum = Number(modalAmountInput.value.replace(/,/g, '')) || 0;
+                modalAmountInput.value = (currentNum + addVal).toLocaleString();
+            });
+        });
+
+        document.getElementById('clearAmountBtn').addEventListener('click', () => {
+            modalAmountInput.value = '';
+        });
+
+        document.querySelectorAll('.tag-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const tag = chip.innerText;
+                const reasonInput = document.getElementById('modalReason');
+                if (!reasonInput.value.includes(tag)) {
+                    reasonInput.value = (reasonInput.value.trim() + ' ' + tag).trim();
+                }
+                reasonInput.focus();
+            });
+        });
+
         function renderCalendarAndSummary() {
             const year = currentDate.getFullYear();
-            const month = currentDate.getMonth(); // 0~11
+            const month = currentDate.getMonth();
             document.getElementById('calendarTitle').innerText = `${year}년 ${month + 1}월`;
 
             const monthlyData = {};
             let totalIncome = 0;
             let totalExpense = 0;
             let totalPlanned = 0;
-
             const transactionsMap = userData.거래내역 || {};
 
             for (const [dateStr, items] of Object.entries(transactionsMap)) {
@@ -464,7 +1323,6 @@
                     items.forEach(t => {
                         let cleanNum = String(t.금액).replace(/,/g, '');
                         let amount = Number(cleanNum) || 0;
-
                         if (t.분류 === '수입') {
                             actualSum += amount;
                             totalIncome += amount;
@@ -476,37 +1334,37 @@
                             totalExpense += Math.abs(amount);
                         }
                     });
-
                     monthlyData[dateStr] = { actualSum, plannedSum };
                 }
             }
 
             document.getElementById('summaryIncome').innerText = totalIncome.toLocaleString() + ' 원';
             document.getElementById('summaryExpense').innerText = totalExpense.toLocaleString() + ' 원';
-            
             document.getElementById('summaryPlannedLabel').innerText = `${month + 1}월 예상 지출 총액`;
             document.getElementById('summaryPlanned').innerText = totalPlanned.toLocaleString() + ' 원';
 
             const net = totalIncome - totalExpense;
             const netEl = document.getElementById('summaryNet');
             netEl.innerText = net.toLocaleString() + ' 원';
-            netEl.className = net < 0 ? "text-xs sm:text-sm font-extrabold text-red-600 mt-1" : "text-xs sm:text-sm font-extrabold text-indigo-700 mt-1";
+            netEl.className = net < 0
+                ? "text-xs sm:text-sm font-extrabold text-red-600 dark:text-red-400 mt-1"
+                : "text-xs sm:text-sm font-extrabold text-indigo-700 dark:text-indigo-300 mt-1";
 
             renderCalendarGrid(year, month, monthlyData);
             renderMonthlyTransactionFeed(year, month);
         }
 
-        // 달력 그리드 생성 함수 (모바일 한 줄 정렬 최적화)
         function renderCalendarGrid(year, month, monthlyData) {
             const gridEl = document.getElementById('calendarGrid');
             gridEl.innerHTML = '';
 
             const firstDayIndex = new Date(year, month, 1).getDay();
             const lastDay = new Date(year, month + 1, 0).getDate();
+            const todayStr = getFormattedDate(new Date());
 
             for (let i = 0; i < firstDayIndex; i++) {
                 const emptyCell = document.createElement('div');
-                emptyCell.className = "bg-gray-50 rounded-xl min-h-[65px] sm:min-h-[90px] opacity-40";
+                emptyCell.className = "bg-slate-50/60 dark:bg-slate-800/30 rounded-xl min-h-[68px] sm:min-h-[92px] opacity-40";
                 gridEl.appendChild(emptyCell);
             }
 
@@ -514,24 +1372,29 @@
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const dayData = monthlyData[dateStr] || { actualSum: 0, plannedSum: 0 };
                 const hasData = userData.거래내역 && userData.거래내역[dateStr] && userData.거래내역[dateStr].length > 0;
+                const isToday = dateStr === todayStr;
+
+                const dayOfWeek = new Date(year, month, day).getDay();
+                const dayColor = dayOfWeek === 0 ? "text-red-500" : (dayOfWeek === 6 ? "text-blue-500" : "text-slate-700 dark:text-slate-200");
 
                 const cell = document.createElement('div');
-                cell.className = "bg-gray-50 hover:bg-blue-50 border border-gray-200 rounded-md sm:rounded-xl p-0.5 sm:p-2 min-h-[65px] sm:min-h-[90px] flex flex-col justify-between cursor-pointer transition shadow-sm overflow-hidden";
-                
-                let actualHtml = `<span class="text-[8px] sm:text-xs text-gray-300">-</span>`;
+                cell.className = `${isToday ? 'ring-2 ring-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30' : 'bg-slate-50 dark:bg-slate-800/60'} hover:bg-indigo-50/70 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-700/70 rounded-xl p-1 sm:p-2 min-h-[68px] sm:min-h-[92px] flex flex-col justify-between cursor-pointer transition overflow-hidden`;
+
+                let actualHtml = `<span class="text-[9px] sm:text-xs text-slate-300 dark:text-slate-600">-</span>`;
                 if (hasData) {
-                    const colorClass = dayData.actualSum < 0 ? "text-red-600 font-bold" : "text-blue-600 font-bold";
-                    actualHtml = `<span class="text-[5.5px] sm:text-xs ${colorClass} leading-tight block whitespace-nowrap tracking-tighter">${dayData.actualSum.toLocaleString()}원</span>`;
+                    const colorClass = dayData.actualSum < 0 ? "text-red-600 dark:text-red-400 font-bold" : "text-blue-600 dark:text-blue-400 font-bold";
+                    actualHtml = `<span class="text-[6px] sm:text-xs ${colorClass} leading-tight block whitespace-nowrap tracking-tighter">${dayData.actualSum.toLocaleString()}원</span>`;
                 }
 
                 let plannedHtml = '';
                 if (dayData.plannedSum > 0) {
-                    plannedHtml = `<div class="text-right"><span class="text-[5.5px] sm:text-[10px] bg-orange-100 text-orange-700 font-bold px-0.5 rounded leading-tight inline-block whitespace-nowrap tracking-tighter">예정:-${dayData.plannedSum.toLocaleString()}원</span></div>`;
+                    plannedHtml = `<div class="text-right"><span class="text-[5.5px] sm:text-[10px] bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 font-bold px-1 rounded leading-tight inline-block whitespace-nowrap tracking-tighter">예정:-${dayData.plannedSum.toLocaleString()}</span></div>`;
                 }
 
                 cell.innerHTML = `
                     <div class="flex justify-between items-center">
-                        <span class="text-[11px] sm:text-sm font-bold text-gray-700">${day}</span>
+                        <span class="text-[11px] sm:text-sm font-extrabold ${dayColor}">${day}</span>
+                        ${isToday ? '<span class="hidden sm:inline text-[9px] font-extrabold text-indigo-600 dark:text-indigo-400">오늘</span>' : ''}
                     </div>
                     <div class="flex flex-col mt-auto space-y-0.5">
                         ${plannedHtml}
@@ -544,7 +1407,6 @@
             }
         }
 
-        // 토스 스타일 이번 달 전체 내역 리스트 렌더링 함수
         function renderMonthlyTransactionFeed(year, month) {
             const feedEl = document.getElementById('monthlyTransactionFeed');
             const countEl = document.getElementById('monthlyItemCount');
@@ -552,15 +1414,14 @@
 
             const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
             const transactionsMap = userData.거래내역 || {};
-            
+
             const matchedDates = Object.keys(transactionsMap)
                 .filter(dateStr => dateStr.startsWith(prefix))
                 .sort((a, b) => b.localeCompare(a));
 
             let allItems = [];
             matchedDates.forEach(dateStr => {
-                const items = transactionsMap[dateStr];
-                items.forEach((t, idx) => {
+                transactionsMap[dateStr].forEach((t, idx) => {
                     allItems.push({ dateStr, ...t, originalIndex: idx });
                 });
             });
@@ -568,66 +1429,73 @@
             countEl.innerText = `총 ${allItems.length}건`;
 
             if (allItems.length === 0) {
-                feedEl.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">이번 달 등록된 내역이 없습니다.</p>';
+                feedEl.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">이번 달 등록된 내역이 없습니다.</p>';
                 return;
             }
 
             allItems.forEach(item => {
-                let cleanNum = String(item.금액).replace(/,/g, '');
-                let amount = Number(cleanNum) || 0;
+                let amount = Number(String(item.금액).replace(/,/g, '')) || 0;
                 let isIncome = item.분류 === '수입';
                 let isPlanned = item.분류 === '예정 지출';
 
-                let badgeColor = "bg-red-100 text-red-700";
-                let amountColor = "text-red-600 font-bold";
+                let badgeColor = "bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300";
+                let amountColor = "text-red-600 dark:text-red-400 font-extrabold";
                 if (isIncome) {
-                    badgeColor = "bg-blue-100 text-blue-700";
-                    amountColor = "text-blue-600 font-bold";
+                    badgeColor = "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300";
+                    amountColor = "text-blue-600 dark:text-blue-400 font-extrabold";
                 } else if (isPlanned) {
-                    badgeColor = "bg-orange-100 text-orange-700";
-                    amountColor = "text-orange-600 font-bold";
+                    badgeColor = "bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300";
+                    amountColor = "text-orange-600 dark:text-orange-400 font-extrabold";
                 }
 
-                const reasonText = item.기타사유 ? `<span class="text-xs text-gray-500 ml-1.5">(${item.기타사유})</span>` : '';
+                const reasonText = item.기타사유 ? `<span class="text-xs text-slate-500 dark:text-slate-400 ml-1.5">(${escapeHtml(item.기타사유)})</span>` : '';
 
                 const row = document.createElement('div');
-                row.className = "bg-gray-50 hover:bg-blue-50/50 p-2.5 rounded-xl border flex justify-between items-center text-sm transition shadow-sm cursor-pointer";
+                row.className = "bg-slate-50 dark:bg-slate-800/70 hover:bg-indigo-50/50 dark:hover:bg-slate-800 p-3 rounded-2xl border border-slate-100 dark:border-slate-700/70 flex justify-between items-center text-sm transition cursor-pointer";
                 row.innerHTML = `
                     <div class="flex items-center space-x-2.5 overflow-hidden">
-                        <span class="text-[11px] text-gray-500 font-medium whitespace-nowrap">${item.dateStr.slice(5)}</span>
-                        <span class="text-xs px-2 py-0.5 rounded-full font-bold ${badgeColor} whitespace-nowrap">${item.분류}</span>
+                        <span class="text-[11px] text-slate-400 font-bold whitespace-nowrap">${item.dateStr.slice(5)}</span>
+                        <span class="text-[11px] px-2 py-0.5 rounded-full font-extrabold ${badgeColor} whitespace-nowrap">${item.분류}</span>
                         <div class="truncate">
                             <span class="${amountColor} text-sm">${isPlanned ? '-' : ''}${Math.abs(amount).toLocaleString()} 원</span>
                             ${reasonText}
                         </div>
                     </div>
-                    <button onclick="openDayModalFromFeed('${item.dateStr}')" class="text-xs text-blue-500 font-medium hover:underline whitespace-nowrap ml-2">상세보기</button>
+                    <span class="text-xs text-indigo-600 dark:text-indigo-400 font-bold whitespace-nowrap ml-2">상세</span>
                 `;
+                row.addEventListener('click', () => {
+                    const parts = item.dateStr.split('-');
+                    openDayModal(item.dateStr, `${parts[0]}년 ${Number(parts[1])}월 ${Number(parts[2])}일`);
+                });
                 feedEl.appendChild(row);
             });
         }
 
-        window.openDayModalFromFeed = function(dateStr) {
-            const parts = dateStr.split('-');
-            openDayModal(dateStr, `${parts[0]}년 ${Number(parts[1])}월 ${Number(parts[2])}일`);
-        };
+        function resetFormMode() {
+            editingIndex = null;
+            document.getElementById('formModeLabel').innerText = "새 거래 내역 입력";
+            document.getElementById('cancelEditBtn').classList.add('hidden');
+            document.getElementById('addTransactionBtn').innerText = "내역 추가하기";
+            document.getElementById('modalAmount').value = '';
+            document.getElementById('modalReason').value = '';
+        }
 
-        // 모달 열기
+        document.getElementById('cancelEditBtn').addEventListener('click', resetFormMode);
+
         function openDayModal(dateStr, titleStr) {
             selectedDateStr = dateStr;
             document.getElementById('modalDateTitle').innerText = titleStr + " 내역";
-            document.getElementById('modalAmount').value = '';
-            document.getElementById('modalReason').value = '';
+            resetFormMode();
             document.getElementById('dayModal').classList.remove('hidden');
             renderDayTransactions();
         }
 
         document.getElementById('closeModalBtn').addEventListener('click', () => {
             document.getElementById('dayModal').classList.add('hidden');
+            resetFormMode();
             renderCalendarAndSummary();
         });
 
-        // 해당 날짜 거래 내역 렌더링
         function renderDayTransactions() {
             const listEl = document.getElementById('modalTransactionList');
             listEl.innerHTML = '';
@@ -636,16 +1504,15 @@
             const dayItems = userData.거래내역[selectedDateStr] || [];
 
             if (dayItems.length === 0) {
-                listEl.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">등록된 내역이 없습니다.</p>';
+                listEl.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">등록된 내역이 없습니다.</p>';
                 document.getElementById('modalDayTotal').innerText = '0 원';
-                document.getElementById('modalDayTotal').className = "text-base font-extrabold text-indigo-600";
+                document.getElementById('modalDayTotal').className = "text-base font-extrabold text-indigo-600 dark:text-indigo-400";
                 return;
             }
 
             let dayTotal = 0;
             dayItems.forEach((t, index) => {
-                let cleanNum = String(t.금액).replace(/,/g, '');
-                let amount = Number(cleanNum) || 0;
+                let amount = Number(String(t.금액).replace(/,/g, '')) || 0;
                 let isIncome = t.분류 === '수입';
                 let isPlanned = t.분류 === '예정 지출';
 
@@ -654,41 +1521,57 @@
                     dayTotal += calcAmount;
                 }
 
-                let badgeColor = "bg-red-100 text-red-700";
-                let amountColor = "text-red-600 font-bold";
+                let badgeColor = "bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300";
+                let amountColor = "text-red-600 dark:text-red-400 font-extrabold";
                 if (isIncome) {
-                    badgeColor = "bg-blue-100 text-blue-700";
-                    amountColor = "text-blue-600 font-bold";
+                    badgeColor = "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300";
+                    amountColor = "text-blue-600 dark:text-blue-400 font-extrabold";
                 } else if (isPlanned) {
-                    badgeColor = "bg-orange-100 text-orange-700";
-                    amountColor = "text-orange-600 font-bold";
+                    badgeColor = "bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300";
+                    amountColor = "text-orange-600 dark:text-orange-400 font-extrabold";
                 }
 
-                const reasonText = t.기타사유 ? `<span class="text-xs text-gray-500 ml-2">(${t.기타사유})</span>` : '';
+                const reasonText = t.기타사유 ? `<span class="text-xs text-slate-500 dark:text-slate-400 ml-1.5">(${escapeHtml(t.기타사유)})</span>` : '';
                 const confirmedBadge = (isPlanned && t.알림확인)
-                    ? `<span class="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold ml-1">확인됨</span>`
+                    ? `<span class="text-[10px] bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded font-bold ml-1">확인됨</span>`
                     : '';
 
                 const item = document.createElement('div');
-                item.className = "bg-white p-3 rounded-xl border flex justify-between items-center text-sm shadow-sm";
+                item.className = "bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-100 dark:border-slate-700 flex justify-between items-center text-sm";
                 item.innerHTML = `
-                    <div class="flex items-center space-x-2 flex-wrap">
-                        <span class="text-xs px-2 py-0.5 rounded-full font-bold ${badgeColor}">${t.분류}</span>
+                    <div class="flex items-center space-x-2 flex-wrap min-w-0">
+                        <span class="text-[11px] px-2 py-0.5 rounded-full font-extrabold ${badgeColor}">${t.분류}</span>
                         <span class="${amountColor}">${isPlanned ? '-' : ''}${Math.abs(amount).toLocaleString()} 원</span>
                         ${reasonText}
                         ${confirmedBadge}
                     </div>
-                    <button onclick="deleteTransaction(${index})" class="text-gray-400 hover:text-red-600 font-bold text-xs px-1">✕</button>
+                    <div class="flex items-center gap-1.5 shrink-0 ml-2">
+                        <button type="button" class="edit-tx-btn text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold px-1">수정</button>
+                        <button type="button" class="del-tx-btn text-slate-400 hover:text-red-600 font-bold text-xs px-1">✕</button>
+                    </div>
                 `;
+
+                item.querySelector('.edit-tx-btn').addEventListener('click', () => {
+                    editingIndex = index;
+                    document.getElementById('formModeLabel').innerText = `내역 수정 중 (#${index + 1})`;
+                    document.getElementById('cancelEditBtn').classList.remove('hidden');
+                    document.getElementById('addTransactionBtn').innerText = "수정 내용 저장하기";
+                    document.getElementById('modalCategory').value = t.분류;
+                    document.getElementById('modalAmount').value = Math.abs(amount).toLocaleString();
+                    document.getElementById('modalReason').value = t.기타사유 || '';
+                });
+
+                item.querySelector('.del-tx-btn').addEventListener('click', () => deleteTransaction(index));
                 listEl.appendChild(item);
             });
 
             const totalEl = document.getElementById('modalDayTotal');
             totalEl.innerText = dayTotal.toLocaleString() + ' 원';
-            totalEl.className = dayTotal < 0 ? "text-base font-extrabold text-red-600" : "text-base font-extrabold text-indigo-600";
+            totalEl.className = dayTotal < 0
+                ? "text-base font-extrabold text-red-600 dark:text-red-400"
+                : "text-base font-extrabold text-indigo-600 dark:text-indigo-400";
         }
 
-        // 거래 내역 추가 버튼
         document.getElementById('addTransactionBtn').addEventListener('click', async () => {
             const category = document.getElementById('modalCategory').value;
             const rawAmount = document.getElementById('modalAmount').value.replace(/,/g, '');
@@ -707,33 +1590,41 @@
 
             const formattedAmountStr = Math.abs(amount).toLocaleString();
 
-            userData.거래내역[selectedDateStr].push({
-                id: String(Date.now()),
-                분류: category,
-                금액: formattedAmountStr,
-                기타사유: reason,
-                알림확인: false
-            });
+            if (editingIndex !== null && userData.거래내역[selectedDateStr][editingIndex]) {
+                const prevItem = userData.거래내역[selectedDateStr][editingIndex];
+                userData.거래내역[selectedDateStr][editingIndex] = {
+                    ...prevItem,
+                    분류: category,
+                    금액: formattedAmountStr,
+                    기타사유: reason
+                };
+            } else {
+                userData.거래내역[selectedDateStr].push({
+                    id: String(Date.now()),
+                    분류: category,
+                    금액: formattedAmountStr,
+                    기타사유: reason,
+                    알림확인: false,
+                    알림발송됨: false
+                });
+            }
 
             try {
                 const userDocRef = doc(db, "users", currentUsername);
                 await setDoc(userDocRef, { 거래내역: userData.거래내역 }, { merge: true });
 
-                // '예정 지출' 추가 시 봇 서버에 즉시 동기화 요청
                 if (category === '예정 지출') {
                     fetch(`${BOT_SERVER_URL}/sync`, { method: 'POST' }).catch(() => {});
                 }
-                
-                document.getElementById('modalAmount').value = '';
-                document.getElementById('modalReason').value = '';
+
+                resetFormMode();
                 renderDayTransactions();
             } catch (error) {
-                alert('등록 실패: ' + error.message);
+                alert('저장 실패: ' + error.message);
             }
         });
 
-        // 거래 내역 삭제 함수 (telegram 정보 보존을 위해 updateDoc 사용)
-        window.deleteTransaction = async function(index) {
+        async function deleteTransaction(index) {
             if (confirm('이 내역을 삭제하시겠습니까?')) {
                 try {
                     const removedItem = userData.거래내역[selectedDateStr][index];
@@ -743,44 +1634,202 @@
                     }
 
                     const userDocRef = doc(db, "users", currentUsername);
-                    await updateDoc(userDocRef, { 
-                        거래내역: userData.거래내역 
-                    });
+                    await updateDoc(userDocRef, { 거래내역: userData.거래내역 });
 
                     if (removedItem && removedItem.분류 === '예정 지출') {
                         fetch(`${BOT_SERVER_URL}/sync`, { method: 'POST' }).catch(() => {});
                     }
-                    
+
+                    resetFormMode();
                     renderDayTransactions();
                     renderCalendarAndSummary();
                 } catch (error) {
                     alert('삭제 실패: ' + error.message);
                 }
             }
-        };
+        }
 
-        // 3. 메모 기능 (telegram 정보 보존을 위해 updateDoc 사용)
-        function renderMemos() {
-            const memoListEl = document.getElementById('memoList');
-            memoListEl.innerHTML = '';
+        // ==========================================
+        // 5. 분석 리포트 & 전체 검색
+        // ==========================================
+        function renderAnalyticsAndSearch() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const prefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+            document.getElementById('analyticsMonthTitle').innerText = `${year}년 ${month + 1}월 소비 리포트`;
 
-            if (!userData.메모) userData.메모 = [];
+            const transactionsMap = userData.거래내역 || {};
+            let totalIncome = 0;
+            let totalExpense = 0;
+            const dailyExpenseMap = {};
+            const keywordExpenseMap = {};
 
-            if (userData.메모.length === 0) {
-                memoListEl.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">저장된 메모가 없습니다.</p>';
+            for (const [dateStr, items] of Object.entries(transactionsMap)) {
+                if (!dateStr.startsWith(prefix)) continue;
+                items.forEach(t => {
+                    const amt = Math.abs(Number(String(t.금액).replace(/,/g, '')) || 0);
+                    if (t.분류 === '수입') {
+                        totalIncome += amt;
+                    } else if (t.분류 === '기타 지출') {
+                        totalExpense += amt;
+                        dailyExpenseMap[dateStr] = (dailyExpenseMap[dateStr] || 0) + amt;
+
+                        const reason = (t.기타사유 || '미분류').trim();
+                        const hashMatches = reason.match(/#[^\s#]+/g);
+                        const key = hashMatches ? hashMatches[0] : reason;
+                        keywordExpenseMap[key] = (keywordExpenseMap[key] || 0) + amt;
+                    }
+                });
+            }
+
+            const ratio = totalIncome > 0 ? Math.min(100, Math.round((totalExpense / totalIncome) * 100)) : (totalExpense > 0 ? 100 : 0);
+            document.getElementById('expenseRatioBadge').innerText = `지출률 ${ratio}%`;
+            document.getElementById('analyticsRatioText').innerText = `${totalExpense.toLocaleString()}원 / ${totalIncome.toLocaleString()}원`;
+            document.getElementById('analyticsProgressBar').style.width = `${ratio}%`;
+            document.getElementById('analyticsProgressBar').className = ratio > 85
+                ? "h-full bg-red-500 rounded-full transition-all duration-300"
+                : "h-full bg-indigo-600 rounded-full transition-all duration-300";
+
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const dailyAvg = Math.round(totalExpense / daysInMonth);
+            document.getElementById('analyticsDailyAvg').innerText = `${dailyAvg.toLocaleString()} 원`;
+
+            let maxDayStr = "-";
+            let maxDayAmt = 0;
+            for (const [d, amt] of Object.entries(dailyExpenseMap)) {
+                if (amt > maxDayAmt) {
+                    maxDayAmt = amt;
+                    maxDayStr = `${d.slice(5)} (${amt.toLocaleString()}원)`;
+                }
+            }
+            document.getElementById('analyticsMaxDay').innerText = maxDayStr;
+
+            const tagListEl = document.getElementById('analyticsTagList');
+            tagListEl.innerHTML = '';
+            const sortedTags = Object.entries(keywordExpenseMap).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+            if (sortedTags.length === 0) {
+                tagListEl.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">분석할 실제 지출 내역이 없습니다.</p>';
+            } else {
+                sortedTags.forEach(([tag, amt]) => {
+                    const pct = totalExpense > 0 ? Math.round((amt / totalExpense) * 100) : 0;
+                    const row = document.createElement('div');
+                    row.className = "p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60";
+                    row.innerHTML = `
+                        <div class="flex justify-between text-xs font-bold mb-1">
+                            <span class="text-slate-700 dark:text-slate-200">${escapeHtml(tag)}</span>
+                            <span class="text-slate-600 dark:text-slate-300">${amt.toLocaleString()}원 (${pct}%)</span>
+                        </div>
+                        <div class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-indigo-500 rounded-full" style="width: ${pct}%"></div>
+                        </div>
+                    `;
+                    tagListEl.appendChild(row);
+                });
+            }
+
+            renderGlobalSearchResults();
+        }
+
+        function renderGlobalSearchResults() {
+            const query = document.getElementById('globalSearchInput').value.trim().toLowerCase();
+            const catFilter = document.getElementById('globalCategoryFilter').value;
+            const resultsEl = document.getElementById('globalSearchResults');
+            resultsEl.innerHTML = '';
+
+            const transactionsMap = userData.거래내역 || {};
+            const allDates = Object.keys(transactionsMap).sort((a, b) => b.localeCompare(a));
+            const matched = [];
+
+            allDates.forEach(dateStr => {
+                transactionsMap[dateStr].forEach(t => {
+                    if (catFilter !== 'ALL' && t.분류 !== catFilter) return;
+                    const reason = (t.기타사유 || '').toLowerCase();
+                    const amtStr = String(t.금액).replace(/,/g, '');
+                    if (!query || reason.includes(query) || amtStr.includes(query) || dateStr.includes(query)) {
+                        matched.push({ dateStr, ...t });
+                    }
+                });
+            });
+
+            if (matched.length === 0) {
+                resultsEl.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">일치하는 거래 내역이 없습니다.</p>';
                 return;
             }
 
-            userData.메모.forEach((memoText, index) => {
-                const item = document.createElement('div');
-                item.className = "bg-gray-50 p-2.5 rounded-xl border flex justify-between items-start text-sm shadow-sm";
-                item.innerHTML = `
-                    <span class="text-gray-700 whitespace-pre-wrap break-all pr-2">${escapeHtml(memoText)}</span>
-                    <button onclick="deleteMemo(${index})" class="text-red-400 hover:text-red-600 text-xs font-bold px-1">✕</button>
+            matched.slice(0, 60).forEach(item => {
+                const amt = Math.abs(Number(String(item.금액).replace(/,/g, '')) || 0);
+                const isIncome = item.분류 === '수입';
+                const isPlanned = item.분류 === '예정 지출';
+                const color = isIncome ? 'text-blue-600 dark:text-blue-400' : (isPlanned ? 'text-orange-600 dark:text-orange-400' : 'text-red-600 dark:text-red-400');
+
+                const row = document.createElement('div');
+                row.className = "p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-100 dark:border-slate-700/70 flex justify-between items-center text-xs sm:text-sm cursor-pointer hover:bg-indigo-50/40";
+                row.innerHTML = `
+                    <div class="truncate pr-2">
+                        <span class="text-[11px] font-bold text-slate-400 mr-2">${item.dateStr}</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-100">${escapeHtml(item.기타사유 || item.분류)}</span>
+                    </div>
+                    <span class="font-extrabold ${color} whitespace-nowrap">${isIncome ? '+' : '-'}${amt.toLocaleString()}원</span>
                 `;
+                row.addEventListener('click', () => {
+                    const parts = item.dateStr.split('-');
+                    openDayModal(item.dateStr, `${parts[0]}년 ${Number(parts[1])}월 ${Number(parts[2])}일`);
+                });
+                resultsEl.appendChild(row);
+            });
+        }
+
+        document.getElementById('globalSearchInput').addEventListener('input', renderGlobalSearchResults);
+        document.getElementById('globalCategoryFilter').addEventListener('change', renderGlobalSearchResults);
+
+        // ==========================================
+        // 6. 타임스탬프 메모 로직
+        // ==========================================
+        function formatMemoTimestamp(isoStr) {
+            if (!isoStr) return '기록된 메모';
+            const d = new Date(isoStr);
+            if (isNaN(d.getTime())) return '기록된 메모';
+            return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        }
+
+        function renderMemos() {
+            const memoListEl = document.getElementById('memoList');
+            const searchQuery = document.getElementById('memoSearchInput').value.trim().toLowerCase();
+            memoListEl.innerHTML = '';
+
+            if (!userData.메모) userData.메모 = [];
+            document.getElementById('memoCountBadge').innerText = `총 ${userData.메모.length}개`;
+
+            const filtered = userData.메모
+                .map((m, idx) => {
+                    const text = typeof m === 'string' ? m : (m.text || '');
+                    const createdAt = typeof m === 'object' && m !== null ? m.createdAt : null;
+                    return { text, createdAt, idx };
+                })
+                .filter(item => !searchQuery || item.text.toLowerCase().includes(searchQuery));
+
+            if (filtered.length === 0) {
+                memoListEl.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">표시할 메모가 없습니다.</p>';
+                return;
+            }
+
+            filtered.forEach(({ text, createdAt, idx }) => {
+                const item = document.createElement('div');
+                item.className = "bg-slate-50 dark:bg-slate-800/70 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-700/70 flex justify-between items-start gap-2 text-sm";
+                item.innerHTML = `
+                    <div class="min-w-0 flex-grow">
+                        <span class="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 block mb-1">🕒 ${formatMemoTimestamp(createdAt)}</span>
+                        <p class="text-slate-700 dark:text-slate-200 whitespace-pre-wrap break-all leading-relaxed">${escapeHtml(text)}</p>
+                    </div>
+                    <button type="button" class="del-memo-btn text-slate-400 hover:text-red-500 text-xs font-bold px-1.5 py-0.5 shrink-0">✕</button>
+                `;
+                item.querySelector('.del-memo-btn').addEventListener('click', () => deleteMemo(idx));
                 memoListEl.appendChild(item);
             });
         }
+
+        document.getElementById('memoSearchInput').addEventListener('input', renderMemos);
 
         document.getElementById('addMemoBtn').addEventListener('click', async () => {
             const text = document.getElementById('memoInput').value.trim();
@@ -790,12 +1839,14 @@
             }
 
             if (!userData.메모) userData.메모 = [];
-            userData.메모.unshift(text);
+            userData.메모.unshift({
+                text,
+                createdAt: new Date().toISOString()
+            });
 
             try {
                 const userDocRef = doc(db, "users", currentUsername);
                 await updateDoc(userDocRef, { 메모: userData.메모 });
-
                 document.getElementById('memoInput').value = '';
                 renderMemos();
             } catch (error) {
@@ -803,30 +1854,164 @@
             }
         });
 
-        window.deleteMemo = async function(index) {
+        async function deleteMemo(index) {
             if (confirm('이 메모를 삭제하시겠습니까?')) {
                 try {
                     userData.메모.splice(index, 1);
-
                     const userDocRef = doc(db, "users", currentUsername);
                     await updateDoc(userDocRef, { 메모: userData.메모 });
-
                     renderMemos();
                 } catch (error) {
                     alert('메모 삭제 실패: ' + error.message);
                 }
             }
-        };
-
-        function escapeHtml(str) {
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
 
-        // 4. 타이머 구동 및 남은 시간 카운트다운 로직
-        let expireTime = localStorage.getItem('loginExpireTime');
+        // ==========================================
+        // 7. 설정 탭: PIN 설정/해제 & 계정 비밀번호 변경
+        // ==========================================
+        let setupStep = 1;
+        let setupFirstPin = "";
+        let setupCurrentPin = "";
 
+        document.getElementById('openPinSetupBtn').addEventListener('click', () => {
+            setupStep = 1;
+            setupFirstPin = "";
+            setupCurrentPin = "";
+            document.getElementById('pinSetupTitle').innerText = "새 6자리 PIN 입력";
+            document.getElementById('pinSetupDesc').innerText = "로그인과 잠금 해제에 사용할 숫자 6자리";
+            document.getElementById('pinSetupError').innerText = "";
+            updateDots('.setup-dot', 0);
+            document.getElementById('pinSetupModal').classList.remove('hidden');
+        });
+
+        document.getElementById('closePinSetupModalBtn').addEventListener('click', () => {
+            document.getElementById('pinSetupModal').classList.add('hidden');
+        });
+
+        renderKeypad(
+            document.getElementById('pinSetupKeypad'),
+            async (digit) => {
+                if (setupCurrentPin.length >= 6) return;
+                setupCurrentPin += digit;
+                updateDots('.setup-dot', setupCurrentPin.length);
+                document.getElementById('pinSetupError').innerText = "";
+
+                if (setupCurrentPin.length === 6) {
+                    if (setupStep === 1) {
+                        setupFirstPin = setupCurrentPin;
+                        setTimeout(() => {
+                            setupStep = 2;
+                            setupCurrentPin = "";
+                            updateDots('.setup-dot', 0);
+                            document.getElementById('pinSetupTitle').innerText = "PIN 한 번 더 입력";
+                            document.getElementById('pinSetupDesc').innerText = "확인을 위해 동일한 6자리를 입력하세요";
+                        }, 180);
+                    } else {
+                        if (setupCurrentPin === setupFirstPin) {
+                            const pinHash = await sha256(setupCurrentPin);
+                            const existing = getSavedPinData() || {};
+                            localStorage.setItem('mg_pin_data', JSON.stringify({
+                                username: currentUsername,
+                                pinHash,
+                                authPayload: existing.authPayload || null
+                            }));
+                            document.getElementById('pinSetupModal').classList.add('hidden');
+                            refreshPinSettingsUI();
+                            alert('6자리 간편비밀번호가 저장되었습니다.');
+                        } else {
+                            const container = document.getElementById('pinSetupDots');
+                            container.classList.add('animate-shake');
+                            document.getElementById('pinSetupError').innerText = "비밀번호가 일치하지 않습니다.";
+                            setTimeout(() => {
+                                container.classList.remove('animate-shake');
+                                setupStep = 1;
+                                setupFirstPin = "";
+                                setupCurrentPin = "";
+                                updateDots('.setup-dot', 0);
+                                document.getElementById('pinSetupTitle').innerText = "새 6자리 PIN 입력";
+                                document.getElementById('pinSetupDesc').innerText = "로그인과 잠금 해제에 사용할 숫자 6자리";
+                            }, 450);
+                        }
+                    }
+                }
+            },
+            () => {
+                if (setupCurrentPin.length === 0) return;
+                setupCurrentPin = setupCurrentPin.slice(0, -1);
+                updateDots('.setup-dot', setupCurrentPin.length);
+            }
+        );
+
+        document.getElementById('removePinBtn').addEventListener('click', () => {
+            if (confirm('이 기기에 저장된 6자리 간편비밀번호를 해제하시겠습니까?')) {
+                localStorage.removeItem('mg_pin_data');
+                localStorage.removeItem('mg_auto_lock');
+                autoLockToggle.checked = false;
+                refreshPinSettingsUI();
+                alert('간편비밀번호가 해제되었습니다.');
+            }
+        });
+
+        document.getElementById('openPasswordModalBtn').addEventListener('click', () => {
+            document.getElementById('currentAccountPw').value = '';
+            document.getElementById('newAccountPw').value = '';
+            document.getElementById('confirmAccountPw').value = '';
+            document.getElementById('passwordChangeModal').classList.remove('hidden');
+        });
+
+        document.getElementById('closePasswordModalBtn').addEventListener('click', () => {
+            document.getElementById('passwordChangeModal').classList.add('hidden');
+        });
+
+        document.getElementById('submitPasswordChangeBtn').addEventListener('click', async () => {
+            const curRaw = document.getElementById('currentAccountPw').value;
+            const newRaw = document.getElementById('newAccountPw').value;
+            const confirmRaw = document.getElementById('confirmAccountPw').value;
+
+            if (!curRaw || !newRaw || !confirmRaw) {
+                alert('모든 비밀번호 입력칸을 채워주세요.');
+                return;
+            }
+            if (newRaw !== confirmRaw) {
+                alert('새 비밀번호와 확인 비밀번호가 일치하지 않습니다.');
+                return;
+            }
+
+            const curFirebasePw = curRaw.length < 6 ? curRaw + 'mgpass' : curRaw;
+            const newFirebasePw = newRaw.length < 6 ? newRaw + 'mgpass' : newRaw;
+
+            try {
+                const credential = EmailAuthProvider.credential(currentUser.email, curFirebasePw);
+                await reauthenticateWithCredential(currentUser, credential);
+                await updatePassword(currentUser, newFirebasePw);
+
+                const pinData = getSavedPinData();
+                if (pinData && pinData.username === currentUsername) {
+                    pinData.authPayload = btoa(encodeURIComponent(JSON.stringify({
+                        email: currentUser.email,
+                        password: newFirebasePw
+                    })));
+                    localStorage.setItem('mg_pin_data', JSON.stringify(pinData));
+                }
+
+                document.getElementById('passwordChangeModal').classList.add('hidden');
+                alert('계정 비밀번호가 성공적으로 변경되었습니다!');
+            } catch (error) {
+                alert('비밀번호 변경 실패: 현재 비밀번호를 다시 확인해주세요.');
+            }
+        });
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        // ==========================================
+        // 8. 타이머, 로그아웃 & 회원탈퇴
+        // ==========================================
+        let expireTime = localStorage.getItem('loginExpireTime');
         if (!expireTime) {
-            expireTime = Date.now() + (1 * 60 * 60 * 1000); // 기본 1시간
+            expireTime = Date.now() + (1 * 60 * 60 * 1000);
             localStorage.setItem('loginExpireTime', expireTime);
         }
 
@@ -839,7 +2024,6 @@
                 localStorage.removeItem('loginExpireTime');
                 if (unsubscribeUserDoc) unsubscribeUserDoc();
                 alert('로그인 유지 시간이 만료되었습니다. 다시 로그인해주세요.');
-                
                 signOut(auth).then(() => {
                     window.location.href = './index.html';
                 }).catch(() => {
@@ -849,27 +2033,24 @@
                 const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                 const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-
-                document.getElementById('timerDisplay').innerText = 
+                document.getElementById('timerDisplay').innerText =
                     `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
             }
         }, 1000);
 
-        // 시간 연장 버튼 (+1시간)
         document.getElementById('extendBtn').addEventListener('click', () => {
             const extension = 1 * 60 * 60 * 1000;
             const currentExpire = Number(localStorage.getItem('loginExpireTime')) || Date.now();
             expireTime = Math.max(Date.now(), currentExpire) + extension;
-            
             localStorage.setItem('loginExpireTime', expireTime);
             alert('로그인 시간이 1시간 연장되었습니다!');
         });
 
-        // 5. 로그아웃 & 회원탈퇴
         document.getElementById('logoutBtn').addEventListener('click', async () => {
             try {
                 if (unsubscribeUserDoc) unsubscribeUserDoc();
                 localStorage.removeItem('loginExpireTime');
+                sessionStorage.removeItem('mg_unlocked');
                 await signOut(auth);
                 alert('로그아웃 되었습니다.');
                 location.href = 'index.html';
@@ -884,6 +2065,8 @@
                     if (unsubscribeUserDoc) unsubscribeUserDoc();
                     await deleteDoc(doc(db, "users", currentUsername));
                     await deleteUser(currentUser);
+                    localStorage.removeItem('mg_pin_data');
+                    localStorage.removeItem('loginExpireTime');
                     alert('회원탈퇴가 완료되었습니다.');
                     location.href = 'index.html';
                 } catch (error) {
