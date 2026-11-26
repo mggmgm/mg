@@ -791,7 +791,7 @@
             const src = rawSettings || {};
             const 테스트모드 = Boolean(src.테스트모드 ?? src.testMode ?? false);
             const rawDays = src.알림시점일수 ?? src.daysBefore;
-            const 알림시점일수 = rawDays === 0 ? 0 : 1;
+            const 알림시점일수 = Number(rawDays) === 0 ? 0 : 1;
 
             let 알림시 = Number(src.알림시 ?? src.notifyHour ?? 9);
             let 알림분 = Number(src.알림분 ?? 0);
@@ -1072,7 +1072,10 @@
 
             try {
                 const userDocRef = doc(db, "users", currentUsername);
-                await setDoc(userDocRef, { 알림설정: newSettings }, { merge: true });
+                await setDoc(userDocRef, {
+                    알림설정: newSettings,
+                    notificationSettings: deleteField()
+                }, { merge: true });
                 fetch(`${BOT_SERVER_URL}/sync`, { method: 'POST' }).catch(() => {});
 
                 if (triggerImmediatePopup && newSettings.테스트모드) {
@@ -1279,8 +1282,15 @@
                         알림설정: normalizedSettings
                     };
 
-                    // 기존 영문 필드(notificationSettings, telegram)가 남아 있으면 한글 필드로 자동 정리
-                    const hasLegacyFields = ('notificationSettings' in raw) || ('telegram' in raw) || !raw.알림설정;
+                    // 최상위 영문 필드(notificationSettings, telegram) 또는 내부 영문 키가 남아 있으면 한글 필드로 즉시 마이그레이션
+                    const rawSettingsObj = raw.알림설정;
+                    const rawTgObj = raw.텔레그램;
+                    const hasLegacySettingsKeys = rawSettingsObj && typeof rawSettingsObj === 'object' &&
+                        ('testMode' in rawSettingsObj || 'daysBefore' in rawSettingsObj || 'notifyHour' in rawSettingsObj || 'notifyTime' in rawSettingsObj || !('테스트모드' in rawSettingsObj) || !('알림시각' in rawSettingsObj));
+                    const hasLegacyTgKeys = rawTgObj && typeof rawTgObj === 'object' &&
+                        ('authCode' in rawTgObj || 'chatId' in rawTgObj);
+
+                    const hasLegacyFields = ('notificationSettings' in raw) || ('telegram' in raw) || !rawSettingsObj || hasLegacySettingsKeys || hasLegacyTgKeys;
                     if (hasLegacyFields) {
                         const migrationPayload = {
                             알림설정: normalizedSettings,
@@ -1288,7 +1298,9 @@
                         };
                         if ('notificationSettings' in raw) migrationPayload.notificationSettings = deleteField();
                         if ('telegram' in raw) migrationPayload.telegram = deleteField();
-                        updateDoc(userDocRef, migrationPayload).catch(() => {});
+                        updateDoc(userDocRef, migrationPayload).catch((err) => {
+                            console.error("한글 필드 마이그레이션 실패:", err);
+                        });
                     }
                 } else {
                     userData = {
@@ -1484,7 +1496,10 @@
             if (userData.텔레그램 && userData.텔레그램.채팅ID) {
                 if (confirm('텔레그램 연동을 해제하시겠습니까? 알림을 더 이상 받을 수 없습니다.')) {
                     userData.텔레그램 = null;
-                    await updateDoc(userDocRef, { 텔레그램: null });
+                    await updateDoc(userDocRef, {
+                        텔레그램: null,
+                        telegram: deleteField()
+                    });
                     updateTelegramUI();
                     alert('텔레그램 연동이 해제되었습니다.');
                 }
@@ -1494,7 +1509,10 @@
             if (!userData.텔레그램 || !userData.텔레그램.인증코드 || !userData.텔레그램.인증코드.startsWith('코드 ')) {
                 const randomCode = '코드 ' + Math.floor(1000 + Math.random() * 9000);
                 userData.텔레그램 = { 인증코드: randomCode, 채팅ID: null };
-                await setDoc(userDocRef, { 텔레그램: userData.텔레그램 }, { merge: true });
+                await setDoc(userDocRef, {
+                    텔레그램: userData.텔레그램,
+                    telegram: deleteField()
+                }, { merge: true });
             }
 
             const code = userData.텔레그램.인증코드;
