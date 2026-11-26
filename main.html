@@ -777,6 +777,8 @@
         let userData = {
             거래내역: {},
             메모: [],
+            간편비밀번호: "",
+            간편비밀번호사용: false,
             telegram: null,
             notificationSettings: { testMode: false, daysBefore: 1, notifyHour: 9, notifyTime: "09:00" }
         };
@@ -1189,19 +1191,50 @@
             }
         });
 
+        // Firestore에서 수신된 간편비밀번호 상태를 로컬 브라우저에 실시간 반영
+        function syncPinFromFirestore() {
+            if (!currentUsername) return;
+            const remoteHash = typeof userData["간편비밀번호"] === "string" ? userData["간편비밀번호"] : "";
+            const remoteEnabled = userData["간편비밀번호사용"] === true && remoteHash.length > 0;
+            const localPin = getSavedPinData();
+
+            if (remoteEnabled) {
+                if (!localPin || localPin.username !== currentUsername || localPin.pinHash !== remoteHash) {
+                    localStorage.setItem('mg_pin_data', JSON.stringify({
+                        username: currentUsername,
+                        pinHash: remoteHash,
+                        authPayload: (localPin && localPin.username === currentUsername) ? (localPin.authPayload || null) : null
+                    }));
+
+                    if (localStorage.getItem('mg_auto_lock') === 'true' && sessionStorage.getItem('mg_unlocked') !== 'true') {
+                        lockApp();
+                    }
+                }
+            } else if (localPin && localPin.username === currentUsername) {
+                // 앱이나 다른 기기에서 PIN이 해제된 경우 로컬 PIN도 함께 해제
+                localStorage.removeItem('mg_pin_data');
+                localStorage.removeItem('mg_auto_lock');
+                autoLockToggle.checked = false;
+                document.getElementById('appLockOverlay').classList.add('hidden');
+                document.getElementById('appLockOverlay').classList.remove('flex');
+            }
+
+            refreshPinSettingsUI();
+        }
+
         function refreshPinSettingsUI() {
             const pinData = getSavedPinData();
-            const isRegistered = pinData && pinData.username === currentUsername;
+            const isRegistered = pinData && pinData.username === currentUsername && Boolean(pinData.pinHash);
             const statusText = document.getElementById('pinSettingStatusText');
             const removeBtn = document.getElementById('removePinBtn');
             const headerLock = document.getElementById('headerLockBtn');
 
             if (isRegistered) {
-                statusText.innerHTML = `<span class="text-green-600 dark:text-green-400 font-bold">등록 완료</span> (6자리 간편비밀번호 사용 중)`;
+                statusText.innerHTML = `<span class="text-green-600 dark:text-green-400 font-bold">등록 완료</span> (앱·웹 6자리 간편비밀번호 동기화 중)`;
                 removeBtn.classList.remove('hidden');
                 headerLock.classList.remove('hidden');
             } else {
-                statusText.innerText = "미등록 (설정 시 6자리 숫자로 빠른 로그인 및 앱 잠금 가능)";
+                statusText.innerText = "미등록 (설정 시 앱·웹에서 6자리 숫자로 빠른 로그인 및 잠금 가능)";
                 removeBtn.classList.add('hidden');
                 headerLock.classList.add('hidden');
             }
@@ -1241,11 +1274,14 @@
                     userData = {
                         거래내역: {},
                         메모: [],
+                        간편비밀번호: "",
+                        간편비밀번호사용: false,
                         notificationSettings: { testMode: false, daysBefore: 1, notifyHour: 9, notifyTime: "09:00" }
                     };
                     await setDoc(userDocRef, userData, { merge: true });
                 }
 
+                syncPinFromFirestore();
                 applyNotificationSettingsUI();
                 renderCalendarAndSummary();
                 renderAnalyticsAndSearch();
@@ -2076,7 +2112,7 @@
         }
 
         // ==========================================
-        // 7. 설정 탭: PIN 설정/해제 & 계정 비밀번호 변경
+        // 7. 설정 탭: PIN 설정/해제(Firestore 양방향 동기화) & 계정 비밀번호 변경
         // ==========================================
         let setupStep = 1;
         let setupFirstPin = "";
@@ -2087,7 +2123,7 @@
             setupFirstPin = "";
             setupCurrentPin = "";
             document.getElementById('pinSetupTitle').innerText = "새 6자리 PIN 입력";
-            document.getElementById('pinSetupDesc').innerText = "로그인과 잠금 해제에 사용할 숫자 6자리";
+            document.getElementById('pinSetupDesc').innerText = "앱과 웹 로그인·잠금 해제에 공통으로 사용할 숫자 6자리";
             document.getElementById('pinSetupError').innerText = "";
             updateDots('.setup-dot', 0);
             document.getElementById('pinSetupModal').classList.remove('hidden');
@@ -2118,15 +2154,25 @@
                     } else {
                         if (setupCurrentPin === setupFirstPin) {
                             const pinHash = await sha256(setupCurrentPin);
-                            const existing = getSavedPinData() || {};
+                            try {
+                                const userDocRef = doc(db, "users", currentUsername);
+                                await setDoc(userDocRef, {
+                                    간편비밀번호: pinHash,
+                                    간편비밀번호사용: true
+                                }, { merge: true });
+                            } catch (syncErr) {
+                                console.error("Firestore PIN 동기화 저장 오류:", syncErr);
+                            }
+
+                            const existing = getSavedPinData();
                             localStorage.setItem('mg_pin_data', JSON.stringify({
                                 username: currentUsername,
                                 pinHash,
-                                authPayload: existing.authPayload || null
+                                authPayload: (existing && existing.username === currentUsername) ? (existing.authPayload || null) : null
                             }));
                             document.getElementById('pinSetupModal').classList.add('hidden');
                             refreshPinSettingsUI();
-                            alert('6자리 간편비밀번호가 저장되었습니다.');
+                            alert('6자리 간편비밀번호가 저장되었으며 앱과 동기화되었습니다.');
                         } else {
                             const container = document.getElementById('pinSetupDots');
                             container.classList.add('animate-shake');
@@ -2138,7 +2184,7 @@
                                 setupCurrentPin = "";
                                 updateDots('.setup-dot', 0);
                                 document.getElementById('pinSetupTitle').innerText = "새 6자리 PIN 입력";
-                                document.getElementById('pinSetupDesc').innerText = "로그인과 잠금 해제에 사용할 숫자 6자리";
+                                document.getElementById('pinSetupDesc').innerText = "앱과 웹 로그인·잠금 해제에 공통으로 사용할 숫자 6자리";
                             }, 450);
                         }
                     }
@@ -2151,8 +2197,18 @@
             }
         );
 
-        document.getElementById('removePinBtn').addEventListener('click', () => {
-            if (confirm('이 기기에 저장된 6자리 간편비밀번호를 해제하시겠습니까?')) {
+        document.getElementById('removePinBtn').addEventListener('click', async () => {
+            if (confirm('간편비밀번호를 해제하시겠습니까? 연동된 앱에서도 함께 해제됩니다.')) {
+                try {
+                    const userDocRef = doc(db, "users", currentUsername);
+                    await setDoc(userDocRef, {
+                        간편비밀번호: "",
+                        간편비밀번호사용: false
+                    }, { merge: true });
+                } catch (syncErr) {
+                    console.error("Firestore PIN 해제 동기화 오류:", syncErr);
+                }
+
                 localStorage.removeItem('mg_pin_data');
                 localStorage.removeItem('mg_auto_lock');
                 autoLockToggle.checked = false;
