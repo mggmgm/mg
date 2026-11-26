@@ -170,7 +170,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // 인라인 에러 메시지 표시/숨김 함수
         const authErrorMsg = document.getElementById('authErrorMsg');
         function showAuthError(message) {
             authErrorMsg.innerText = message;
@@ -181,7 +180,6 @@
             authErrorMsg.classList.add('hidden');
         }
 
-        // Firebase 에러 코드를 앱과 동일한 한국어 문구로 변환
         function getKoreanAuthError(errorCode, isSignup = false) {
             switch (errorCode) {
                 case 'auth/email-already-in-use':
@@ -206,13 +204,78 @@
         document.getElementById('username').addEventListener('input', clearAuthError);
         document.getElementById('password').addEventListener('input', clearAuthError);
 
+        // 순수 JS SHA-256 폴백 (비HTTPS 환경 호환용)
+        function sha256Fallback(ascii) {
+            function rightRotate(value, amount) {
+                return (value >>> amount) | (value << (32 - amount));
+            }
+            const mathPow = Math.pow;
+            const maxWord = mathPow(2, 32);
+            let result = '';
+            const words = [];
+            const asciiBitLength = ascii.length * 8;
+            const hash = [];
+            const k = [];
+            let primeCounter = 0;
+            const isComposite = {};
+            for (let candidate = 2; primeCounter < 64; candidate++) {
+                if (!isComposite[candidate]) {
+                    for (let i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+                    hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+                    k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+                }
+            }
+            ascii += '\x80';
+            while ((ascii.length % 64) - 56) ascii += '\x00';
+            for (let i = 0; i < ascii.length; i++) {
+                const j = ascii.charCodeAt(i);
+                words[i >> 2] |= j << (((3 - i) % 4) * 8);
+            }
+            words[words.length] = (asciiBitLength / maxWord) | 0;
+            words[words.length] = asciiBitLength;
+            for (let j = 0; j < words.length;) {
+                const w = words.slice(j, (j += 16));
+                const oldHash = hash.slice(0);
+                for (let i = 0; i < 64; i++) {
+                    const w15 = w[i - 15], w2 = w[i - 2];
+                    const a = hash[0], e = hash[4];
+                    const temp1 = hash[7]
+                        + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+                        + ((e & hash[5]) ^ (~e & hash[6]))
+                        + k[i]
+                        + (w[i] = i < 16 ? w[i] : (
+                            w[i - 16]
+                            + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+                            + w[i - 7]
+                            + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))
+                        ) | 0);
+                    const temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+                        + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+                    hash.unshift((temp1 + temp2) | 0);
+                    hash[4] = (hash[4] + temp1) | 0;
+                    hash.pop();
+                }
+                for (let i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+            }
+            for (let i = 0; i < 8; i++) {
+                for (let j = 3; j + 1; j--) {
+                    const b = (hash[i] >> (j * 8)) & 255;
+                    result += (b < 16 ? '0' : '') + b.toString(16);
+                }
+            }
+            return result;
+        }
+
         // SHA-256 해시 유틸리티 (iOS CryptoKit과 동일한 64자리 소문자 16진수 생성)
         async function sha256(text) {
             const encoder = new TextEncoder();
             const data = encoder.encode(text);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            if (window.crypto && window.crypto.subtle) {
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+            return sha256Fallback(String.fromCharCode(...data));
         }
 
         function encodePayload(obj) {
@@ -223,23 +286,55 @@
             return JSON.parse(decodeURIComponent(atob(str)));
         }
 
+        function saveCredsBackup(username, email, password) {
+            const normalized = username.trim().toLowerCase();
+            localStorage.setItem(`mg_saved_creds_${normalized}`, encodePayload({ email, password }));
+        }
+
+        function getCredsBackup(username) {
+            const normalized = username.trim().toLowerCase();
+            return localStorage.getItem(`mg_saved_creds_${normalized}`) || null;
+        }
+
         function getSavedPinData() {
             try {
                 const raw = localStorage.getItem('mg_pin_data');
-                return raw ? JSON.parse(raw) : null;
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (!parsed || !parsed.username) return null;
+
+                // 기존 저장 데이터의 아이디 소문자 정규화 및 백업된 인증 정보 복구
+                const normalizedUser = parsed.username.trim().toLowerCase();
+                let changed = false;
+                if (parsed.username !== normalizedUser) {
+                    parsed.username = normalizedUser;
+                    changed = true;
+                }
+                if (!parsed.authPayload) {
+                    const backup = getCredsBackup(normalizedUser);
+                    if (backup) {
+                        parsed.authPayload = backup;
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    localStorage.setItem('mg_pin_data', JSON.stringify(parsed));
+                }
+                return parsed;
             } catch {
                 return null;
             }
         }
 
-        // Firestore에서 해당 계정의 간편비밀번호 상태를 조회하는 헬퍼
+        // Firestore에서 해당 계정의 간편비밀번호 상태를 조회하는 헬퍼 (항상 소문자 ID 문서 조회)
         async function fetchRemotePinState(username) {
-            const snap = await getDoc(doc(db, "users", username));
+            const normalizedUser = username.trim().toLowerCase();
+            const snap = await getDoc(doc(db, "users", normalizedUser));
             if (!snap.exists()) {
                 return { exists: false, enabled: false, pinHash: "" };
             }
             const data = snap.data();
-            const pinHash = typeof data["간편비밀번호"] === "string" ? data["간편비밀번호"] : "";
+            const pinHash = typeof data["간편비밀번호"] === "string" ? data["간편비밀번호"].trim().toLowerCase() : "";
             const enabled = data["간편비밀번호사용"] === true && pinHash.length > 0;
             return { exists: true, enabled, pinHash };
         }
@@ -314,7 +409,10 @@
 
         function showPinLoginMode() {
             const data = getSavedPinData();
-            if (!data) return;
+            if (!data || !data.pinHash || !data.authPayload) {
+                showIdLoginMode();
+                return;
+            }
             clearAuthError();
             document.getElementById('pinUserSubtitle').innerText = `${data.username}님의 6자리 비밀번호를 입력하세요`;
             document.getElementById('pinLoginCard').classList.remove('hidden');
@@ -329,7 +427,7 @@
             clearAuthError();
             document.getElementById('pinLoginCard').classList.add('hidden');
             document.getElementById('idLoginCard').classList.remove('hidden');
-            if (data) {
+            if (data && data.pinHash && data.authPayload) {
                 document.getElementById('quickPinBanner').classList.remove('hidden');
                 document.getElementById('quickPinBannerText').innerText = `🔐 ${data.username}님 간편비밀번호로 로그인`;
             } else {
@@ -337,7 +435,6 @@
             }
         }
 
-        // 페이지 진입 시 앱에서 변경/해제한 PIN 상태가 있으면 즉시 동기화
         async function syncInitialPinWithFirestore(data) {
             if (!data || !data.username) return;
             try {
@@ -355,7 +452,7 @@
                     showIdLoginMode();
                 }
             } catch {
-                // 비로그인 상태 읽기 권한 제한 시 키패드 입력 시점에 인증 후 동기화
+                // 비로그인 상태 읽기 권한 제한 시 키패드 입력 직후 인증된 상태에서 즉시 동기화
             }
         }
 
@@ -401,16 +498,15 @@
                     const creds = decodePayload(data.authPayload);
 
                     try {
-                        document.getElementById('pinUserSubtitle').innerText = "로그인 확인 중...";
+                        document.getElementById('pinUserSubtitle').innerText = "동기화 및 로그인 확인 중...";
                         await signInWithEmailAndPassword(auth, creds.email, creds.password);
 
-                        // 로그인 직후 Firestore의 최신 PIN과 대조 (앱에서 변경된 경우 대응)
+                        // 인증 직후 Firestore의 최신 간편비밀번호 해시와 직접 대조
                         let expectedHash = data.pinHash;
                         try {
                             const remote = await fetchRemotePinState(data.username);
                             if (remote.exists) {
                                 if (!remote.enabled) {
-                                    // 앱에서 PIN을 해제한 상태라면 캐시를 지우고 바로 입장
                                     localStorage.removeItem('mg_pin_data');
                                     localStorage.removeItem('mg_auto_lock');
                                     localStorage.removeItem('loginExpireTime');
@@ -425,7 +521,7 @@
                                 }
                             }
                         } catch {
-                            // 오프라인 등 조회 실패 시 로컬 해시로 검증 유지
+                            // 오프라인 등 조회 실패 시 로컬 해시로 검증
                         }
 
                         if (inputHash === expectedHash) {
@@ -460,7 +556,7 @@
         let currentOnboardingPin = "";
 
         function openOnboardingModal(username, email, password) {
-            pendingAuthCreds = { username, email, password };
+            pendingAuthCreds = { username: username.trim().toLowerCase(), email, password };
             onboardingStep = 1;
             firstOnboardingPin = "";
             currentOnboardingPin = "";
@@ -505,6 +601,7 @@
                                 email: pendingAuthCreds.email,
                                 password: pendingAuthCreds.password
                             });
+                            saveCredsBackup(pendingAuthCreds.username, pendingAuthCreds.email, pendingAuthCreds.password);
                             localStorage.setItem('mg_pin_data', JSON.stringify({
                                 username: pendingAuthCreds.username,
                                 pinHash,
@@ -546,7 +643,7 @@
         // ==========================================
         async function handleLogin() {
             clearAuthError();
-            const rawId = document.getElementById('username').value.trim();
+            const rawId = document.getElementById('username').value.trim().toLowerCase();
             const rawPassword = document.getElementById('password').value;
 
             if (!rawId || !rawPassword) {
@@ -563,8 +660,9 @@
             try {
                 await signInWithEmailAndPassword(auth, email, password);
                 localStorage.removeItem('loginExpireTime');
+                saveCredsBackup(rawId, email, password);
 
-                // Firestore에서 앱에 등록된 간편비밀번호가 있는지 조회
+                // Firestore에서 앱/웹에 등록된 최신 간편비밀번호 조회
                 let remote = { exists: false, enabled: false, pinHash: "" };
                 try {
                     remote = await fetchRemotePinState(rawId);
@@ -573,7 +671,6 @@
                 }
 
                 if (remote.enabled) {
-                    // 앱에서 이미 설정한 간편비밀번호가 있는 경우 -> 로컬에 동기화 후 PIN 로그인 화면 즉시 표시
                     localStorage.setItem('mg_pin_data', JSON.stringify({
                         username: rawId,
                         pinHash: remote.pinHash,
@@ -583,7 +680,6 @@
                     showPinLoginMode();
                     document.getElementById('pinUserSubtitle').innerText = `${rawId}님의 동기화된 6자리 비밀번호를 입력하세요`;
                 } else {
-                    // 앱/웹 어디에도 설정된 간편비밀번호가 없는 경우
                     localStorage.removeItem('mg_pin_data');
                     localStorage.removeItem('mg_auto_lock');
                     sessionStorage.setItem('mg_unlocked', 'true');
@@ -599,7 +695,7 @@
 
         document.getElementById('signupBtn').addEventListener('click', async () => {
             clearAuthError();
-            const rawId = document.getElementById('username').value.trim();
+            const rawId = document.getElementById('username').value.trim().toLowerCase();
             const rawPassword = document.getElementById('password').value;
 
             if (!rawId || !rawPassword) {
@@ -623,6 +719,7 @@
                     간편비밀번호사용: false
                 });
 
+                saveCredsBackup(rawId, email, password);
                 localStorage.removeItem('loginExpireTime');
                 sessionStorage.setItem('mg_unlocked', 'true');
                 openOnboardingModal(rawId, email, password);

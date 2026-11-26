@@ -739,7 +739,6 @@
 
         const BOT_SERVER_URL = "https://telegram-wallet-bot-ht1m.onrender.com";
 
-        // 넷리파이 배지 제거
         window.addEventListener('DOMContentLoaded', () => {
             const removeBadge = () => {
                 document.querySelectorAll('iframe, div, a').forEach(el => {
@@ -788,17 +787,106 @@
         // ==========================================
         // 유틸리티
         // ==========================================
+        function sha256Fallback(ascii) {
+            function rightRotate(value, amount) {
+                return (value >>> amount) | (value << (32 - amount));
+            }
+            const mathPow = Math.pow;
+            const maxWord = mathPow(2, 32);
+            let result = '';
+            const words = [];
+            const asciiBitLength = ascii.length * 8;
+            const hash = [];
+            const k = [];
+            let primeCounter = 0;
+            const isComposite = {};
+            for (let candidate = 2; primeCounter < 64; candidate++) {
+                if (!isComposite[candidate]) {
+                    for (let i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+                    hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+                    k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+                }
+            }
+            ascii += '\x80';
+            while ((ascii.length % 64) - 56) ascii += '\x00';
+            for (let i = 0; i < ascii.length; i++) {
+                const j = ascii.charCodeAt(i);
+                words[i >> 2] |= j << (((3 - i) % 4) * 8);
+            }
+            words[words.length] = (asciiBitLength / maxWord) | 0;
+            words[words.length] = asciiBitLength;
+            for (let j = 0; j < words.length;) {
+                const w = words.slice(j, (j += 16));
+                const oldHash = hash.slice(0);
+                for (let i = 0; i < 64; i++) {
+                    const w15 = w[i - 15], w2 = w[i - 2];
+                    const a = hash[0], e = hash[4];
+                    const temp1 = hash[7]
+                        + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+                        + ((e & hash[5]) ^ (~e & hash[6]))
+                        + k[i]
+                        + (w[i] = i < 16 ? w[i] : (
+                            w[i - 16]
+                            + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+                            + w[i - 7]
+                            + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))
+                        ) | 0);
+                    const temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+                        + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+                    hash.unshift((temp1 + temp2) | 0);
+                    hash[4] = (hash[4] + temp1) | 0;
+                    hash.pop();
+                }
+                for (let i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+            }
+            for (let i = 0; i < 8; i++) {
+                for (let j = 3; j + 1; j--) {
+                    const b = (hash[i] >> (j * 8)) & 255;
+                    result += (b < 16 ? '0' : '') + b.toString(16);
+                }
+            }
+            return result;
+        }
+
         async function sha256(text) {
             const encoder = new TextEncoder();
             const data = encoder.encode(text);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+            if (window.crypto && window.crypto.subtle) {
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+            return sha256Fallback(String.fromCharCode(...data));
+        }
+
+        function getCredsBackup(username) {
+            const normalized = username.trim().toLowerCase();
+            return localStorage.getItem(`mg_saved_creds_${normalized}`) || null;
         }
 
         function getSavedPinData() {
             try {
                 const raw = localStorage.getItem('mg_pin_data');
-                return raw ? JSON.parse(raw) : null;
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (!parsed || !parsed.username) return null;
+
+                const normalizedUser = parsed.username.trim().toLowerCase();
+                let changed = false;
+                if (parsed.username !== normalizedUser) {
+                    parsed.username = normalizedUser;
+                    changed = true;
+                }
+                if (!parsed.authPayload) {
+                    const backup = getCredsBackup(normalizedUser);
+                    if (backup) {
+                        parsed.authPayload = backup;
+                        changed = true;
+                    }
+                }
+                if (changed) {
+                    localStorage.setItem('mg_pin_data', JSON.stringify(parsed));
+                }
+                return parsed;
             } catch {
                 return null;
             }
@@ -874,7 +962,6 @@
             localStorage.setItem('mg_auto_lock', e.target.checked ? 'true' : 'false');
         });
 
-        // 테스트 모드 & 알림 시점/시각 UI 동기화 및 Firestore 저장
         const testModeToggle = document.getElementById('testModeToggle');
         const notifyDaysBeforeSelect = document.getElementById('notifyDaysBeforeSelect');
         const notifyTimeInput = document.getElementById('notifyTimeInput');
@@ -1054,7 +1141,6 @@
         testModeToggle.addEventListener('change', () => saveNotificationSettings(true));
         notifyDaysBeforeSelect.addEventListener('change', () => saveNotificationSettings(false));
 
-        // 테스트 모드에서 '미확인 내역 재발송 테스트' 버튼 클릭 시
         document.getElementById('retestTelegramBtn').addEventListener('click', async () => {
             if (!currentUsername) return;
             const txMap = userData.거래내역 || {};
@@ -1174,7 +1260,7 @@
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
-                currentUsername = user.email ? user.email.split('@')[0] : 'user';
+                currentUsername = user.email ? user.email.split('@')[0].toLowerCase() : 'user';
                 document.getElementById('userWelcome').innerText = `${currentUsername}님 환영합니다!`;
 
                 refreshPinSettingsUI();
@@ -1194,16 +1280,20 @@
         // Firestore에서 수신된 간편비밀번호 상태를 로컬 브라우저에 실시간 반영
         function syncPinFromFirestore() {
             if (!currentUsername) return;
-            const remoteHash = typeof userData["간편비밀번호"] === "string" ? userData["간편비밀번호"] : "";
+            const remoteHash = typeof userData["간편비밀번호"] === "string" ? userData["간편비밀번호"].trim().toLowerCase() : "";
             const remoteEnabled = userData["간편비밀번호사용"] === true && remoteHash.length > 0;
             const localPin = getSavedPinData();
 
             if (remoteEnabled) {
-                if (!localPin || localPin.username !== currentUsername || localPin.pinHash !== remoteHash) {
+                const preservedAuthPayload = (localPin && localPin.username === currentUsername && localPin.authPayload)
+                    ? localPin.authPayload
+                    : getCredsBackup(currentUsername);
+
+                if (!localPin || localPin.username !== currentUsername || localPin.pinHash !== remoteHash || localPin.authPayload !== preservedAuthPayload) {
                     localStorage.setItem('mg_pin_data', JSON.stringify({
                         username: currentUsername,
                         pinHash: remoteHash,
-                        authPayload: (localPin && localPin.username === currentUsername) ? (localPin.authPayload || null) : null
+                        authPayload: preservedAuthPayload || null
                     }));
 
                     if (localStorage.getItem('mg_auto_lock') === 'true' && sessionStorage.getItem('mg_unlocked') !== 'true') {
@@ -1211,7 +1301,7 @@
                     }
                 }
             } else if (localPin && localPin.username === currentUsername) {
-                // 앱이나 다른 기기에서 PIN이 해제된 경우 로컬 PIN도 함께 해제
+                // 앱이나 다른 기기에서 PIN이 해제된 경우 로컬 PIN 해제 (인증 백업은 보존)
                 localStorage.removeItem('mg_pin_data');
                 localStorage.removeItem('mg_auto_lock');
                 autoLockToggle.checked = false;
@@ -2165,10 +2255,14 @@
                             }
 
                             const existing = getSavedPinData();
+                            const preservedPayload = (existing && existing.username === currentUsername && existing.authPayload)
+                                ? existing.authPayload
+                                : getCredsBackup(currentUsername);
+
                             localStorage.setItem('mg_pin_data', JSON.stringify({
                                 username: currentUsername,
                                 pinHash,
-                                authPayload: (existing && existing.username === currentUsername) ? (existing.authPayload || null) : null
+                                authPayload: preservedPayload || null
                             }));
                             document.getElementById('pinSetupModal').classList.add('hidden');
                             refreshPinSettingsUI();
@@ -2250,12 +2344,15 @@
                 await reauthenticateWithCredential(currentUser, credential);
                 await updatePassword(currentUser, newFirebasePw);
 
+                const newPayload = btoa(encodeURIComponent(JSON.stringify({
+                    email: currentUser.email,
+                    password: newFirebasePw
+                })));
+                localStorage.setItem(`mg_saved_creds_${currentUsername}`, newPayload);
+
                 const pinData = getSavedPinData();
                 if (pinData && pinData.username === currentUsername) {
-                    pinData.authPayload = btoa(encodeURIComponent(JSON.stringify({
-                        email: currentUser.email,
-                        password: newFirebasePw
-                    })));
+                    pinData.authPayload = newPayload;
                     localStorage.setItem('mg_pin_data', JSON.stringify(pinData));
                 }
 
@@ -2322,7 +2419,6 @@
             }
         });
 
-        // 회원탈퇴 모달 열기 / 닫기 / 즉시 탈퇴 처리
         const withdrawModal = document.getElementById('withdrawModal');
         const withdrawPasswordInput = document.getElementById('withdrawPasswordInput');
         const withdrawErrorMsg = document.getElementById('withdrawErrorMsg');
@@ -2373,6 +2469,7 @@
                 await deleteDoc(doc(db, "users", currentUsername));
                 await deleteUser(currentUser);
 
+                localStorage.removeItem(`mg_saved_creds_${currentUsername}`);
                 localStorage.removeItem('mg_pin_data');
                 localStorage.removeItem('mg_auto_lock');
                 localStorage.removeItem('loginExpireTime');
