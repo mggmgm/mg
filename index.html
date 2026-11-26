@@ -523,7 +523,15 @@
                 await setDoc(doc(db, "users", rawId), {
                     username: rawId,
                     거래내역: {},
-                    메모: []
+                    메모: [],
+                    텔레그램: null,
+                    알림설정: {
+                        테스트모드: false,
+                        알림시점일수: 1,
+                        알림시각: "09:00",
+                        알림시: 9,
+                        알림분: 0
+                    }
                 });
 
                 localStorage.removeItem('loginExpireTime');

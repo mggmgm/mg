@@ -735,7 +735,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut, deleteUser, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, deleteField } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const BOT_SERVER_URL = "https://telegram-wallet-bot-ht1m.onrender.com";
 
@@ -777,11 +777,46 @@
         let userData = {
             거래내역: {},
             메모: [],
-            telegram: null,
-            notificationSettings: { testMode: false, daysBefore: 1, notifyHour: 9, notifyTime: "09:00" }
+            텔레그램: null,
+            알림설정: { 테스트모드: false, 알림시점일수: 1, 알림시각: "09:00", 알림시: 9, 알림분: 0 }
         };
         let unsubscribeUserDoc = null;
-        let upcomingAlertShownThisSession = false;
+        let alertedTxKeys = new Set();
+        let lastKnownTestMode = false;
+
+        // ==========================================
+        // 한글 스키마 정규화 유틸리티
+        // ==========================================
+        function normalizeNotificationSettings(rawSettings) {
+            const src = rawSettings || {};
+            const 테스트모드 = Boolean(src.테스트모드 ?? src.testMode ?? false);
+            const rawDays = src.알림시점일수 ?? src.daysBefore;
+            const 알림시점일수 = rawDays === 0 ? 0 : 1;
+
+            let 알림시 = Number(src.알림시 ?? src.notifyHour ?? 9);
+            let 알림분 = Number(src.알림분 ?? 0);
+            const rawTime = src.알림시각 || src.notifyTime;
+
+            if (typeof rawTime === 'string' && rawTime.includes(':')) {
+                const [hPart, mPart] = rawTime.split(':');
+                알림시 = Math.max(0, Math.min(23, Number(hPart) || 0));
+                알림분 = Math.max(0, Math.min(59, Number(mPart) || 0));
+            } else {
+                알림시 = Math.max(0, Math.min(23, 알림시 || 0));
+                알림분 = Math.max(0, Math.min(59, 알림분 || 0));
+            }
+
+            const 알림시각 = `${String(알림시).padStart(2, '0')}:${String(알림분).padStart(2, '0')}`;
+            return { 테스트모드, 알림시점일수, 알림시각, 알림시, 알림분 };
+        }
+
+        function normalizeTelegramData(rawTg) {
+            if (!rawTg || typeof rawTg !== 'object') return null;
+            const 인증코드 = rawTg.인증코드 ?? rawTg.authCode ?? null;
+            const 채팅ID = rawTg.채팅ID ?? rawTg.chatId ?? null;
+            if (!인증코드 && !채팅ID) return null;
+            return { 인증코드, 채팅ID };
+        }
 
         // ==========================================
         // 유틸리티
@@ -872,7 +907,7 @@
             localStorage.setItem('mg_auto_lock', e.target.checked ? 'true' : 'false');
         });
 
-        // 테스트 모드 & 알림 시점/시각 UI 동기화 및 Firestore 저장
+        // 테스트 모드 & 알림 시점/시각 UI 동기화 및 Firestore 실시간 저장
         const testModeToggle = document.getElementById('testModeToggle');
         const notifyDaysBeforeSelect = document.getElementById('notifyDaysBeforeSelect');
         const notifyTimeInput = document.getElementById('notifyTimeInput');
@@ -987,21 +1022,18 @@
         });
 
         function applyNotificationSettingsUI() {
-            const settings = userData.notificationSettings || { testMode: false, daysBefore: 1, notifyHour: 9, notifyTime: "09:00" };
-            const isTest = Boolean(settings.testMode);
+            const settings = normalizeNotificationSettings(userData.알림설정);
+            userData.알림설정 = settings;
+            const isTest = settings.테스트모드;
 
             testModeToggle.checked = isTest;
-            notifyDaysBeforeSelect.value = settings.daysBefore === 0 ? "0" : "1";
+            notifyDaysBeforeSelect.value = settings.알림시점일수 === 0 ? "0" : "1";
 
-            let displayTime = "09:00";
-            if (settings.notifyTime) {
-                displayTime = settings.notifyTime;
-            } else {
-                const h = Number(settings.notifyHour ?? 9);
-                displayTime = `${String(h).padStart(2, '0')}:00`;
+            // 휠 피커를 직접 조작 중인 경우에는 스크롤 위치를 강제로 덮어쓰지 않음
+            if (iosWheelPopover.classList.contains('hidden')) {
+                notifyTimeInput.value = settings.알림시각;
+                notifyTimePickerBtn.innerText = settings.알림시각;
             }
-            notifyTimeInput.value = displayTime;
-            notifyTimePickerBtn.innerText = displayTime;
 
             const normalBox = document.getElementById('normalScheduleSettings');
             const testInfoBox = document.getElementById('testModeInfoBox');
@@ -1023,24 +1055,28 @@
         async function saveNotificationSettings(triggerImmediatePopup = false) {
             if (!currentUsername) return;
             const timeVal = notifyTimeInput.value || "09:00";
-            const parsedHour = Number(timeVal.split(':')[0]) || 0;
+            const [hStr, mStr] = timeVal.split(':');
+            const parsedHour = Math.max(0, Math.min(23, Number(hStr) || 0));
+            const parsedMinute = Math.max(0, Math.min(59, Number(mStr) || 0));
+            const normalizedTime = `${String(parsedHour).padStart(2, '0')}:${String(parsedMinute).padStart(2, '0')}`;
 
             const newSettings = {
-                testMode: testModeToggle.checked,
-                daysBefore: Number(notifyDaysBeforeSelect.value),
-                notifyHour: parsedHour,
-                notifyTime: timeVal
+                테스트모드: testModeToggle.checked,
+                알림시점일수: Number(notifyDaysBeforeSelect.value) === 0 ? 0 : 1,
+                알림시각: normalizedTime,
+                알림시: parsedHour,
+                알림분: parsedMinute
             };
-            userData.notificationSettings = newSettings;
+            userData.알림설정 = newSettings;
             applyNotificationSettingsUI();
 
             try {
                 const userDocRef = doc(db, "users", currentUsername);
-                await setDoc(userDocRef, { notificationSettings: newSettings }, { merge: true });
+                await setDoc(userDocRef, { 알림설정: newSettings }, { merge: true });
                 fetch(`${BOT_SERVER_URL}/sync`, { method: 'POST' }).catch(() => {});
 
-                if (triggerImmediatePopup && newSettings.testMode) {
-                    upcomingAlertShownThisSession = false;
+                if (triggerImmediatePopup && newSettings.테스트모드) {
+                    alertedTxKeys.clear();
                     sessionStorage.removeItem(`mg_dismiss_alert_${getFormattedDate(new Date())}`);
                     checkUpcomingExpensesAlert(true);
                 }
@@ -1231,20 +1267,46 @@
 
             unsubscribeUserDoc = onSnapshot(userDocRef, async (docSnap) => {
                 if (docSnap.exists()) {
-                    userData = docSnap.data();
-                    if (!userData.거래내역) userData.거래내역 = {};
-                    if (!userData.메모) userData.메모 = [];
-                    if (!userData.notificationSettings) {
-                        userData.notificationSettings = { testMode: false, daysBefore: 1, notifyHour: 9, notifyTime: "09:00" };
+                    const raw = docSnap.data();
+                    const normalizedSettings = normalizeNotificationSettings(raw.알림설정 || raw.notificationSettings);
+                    const normalizedTelegram = normalizeTelegramData(raw.텔레그램 || raw.telegram);
+
+                    userData = {
+                        ...raw,
+                        거래내역: raw.거래내역 || {},
+                        메모: Array.isArray(raw.메모) ? raw.메모 : [],
+                        텔레그램: normalizedTelegram,
+                        알림설정: normalizedSettings
+                    };
+
+                    // 기존 영문 필드(notificationSettings, telegram)가 남아 있으면 한글 필드로 자동 정리
+                    const hasLegacyFields = ('notificationSettings' in raw) || ('telegram' in raw) || !raw.알림설정;
+                    if (hasLegacyFields) {
+                        const migrationPayload = {
+                            알림설정: normalizedSettings,
+                            텔레그램: normalizedTelegram
+                        };
+                        if ('notificationSettings' in raw) migrationPayload.notificationSettings = deleteField();
+                        if ('telegram' in raw) migrationPayload.telegram = deleteField();
+                        updateDoc(userDocRef, migrationPayload).catch(() => {});
                     }
                 } else {
                     userData = {
                         거래내역: {},
                         메모: [],
-                        notificationSettings: { testMode: false, daysBefore: 1, notifyHour: 9, notifyTime: "09:00" }
+                        텔레그램: null,
+                        알림설정: { 테스트모드: false, 알림시점일수: 1, 알림시각: "09:00", 알림시: 9, 알림분: 0 }
                     };
                     await setDoc(userDocRef, userData, { merge: true });
                 }
+
+                // 다른 기기(iOS 앱 등)에서 테스트모드가 새로 켜졌을 때 즉시 팝업 재트리거
+                const currentTestMode = Boolean(userData.알림설정?.테스트모드);
+                if (currentTestMode && !lastKnownTestMode) {
+                    alertedTxKeys.clear();
+                    sessionStorage.removeItem(`mg_dismiss_alert_${getFormattedDate(new Date())}`);
+                }
+                lastKnownTestMode = currentTestMode;
 
                 applyNotificationSettingsUI();
                 renderCalendarAndSummary();
@@ -1268,16 +1330,15 @@
         }
 
         function checkUpcomingExpensesAlert(forceRun = false) {
-            if (!forceRun && upcomingAlertShownThisSession) return;
             if (localStorage.getItem('mg_upcoming_alert') === 'false') return;
 
             const today = new Date();
             const todayStr = getFormattedDate(today);
             if (!forceRun && sessionStorage.getItem(`mg_dismiss_alert_${todayStr}`) === 'true') return;
 
-            const settings = userData.notificationSettings || { testMode: false, daysBefore: 1, notifyHour: 9 };
-            const isTest = Boolean(settings.testMode);
-            const daysBefore = settings.daysBefore === 0 ? 0 : 1;
+            const settings = normalizeNotificationSettings(userData.알림설정);
+            const isTest = settings.테스트모드;
+            const daysBefore = settings.알림시점일수;
 
             const upcomingItems = [];
             const txMap = userData.거래내역 || {};
@@ -1286,12 +1347,16 @@
                 Object.keys(txMap).sort().forEach(dStr => {
                     (txMap[dStr] || []).forEach((item, idx) => {
                         if (item.분류 === '예정 지출' && !item.알림확인) {
-                            upcomingItems.push({
-                                dateStr: dStr,
-                                label: `예정일 ${dStr}`,
-                                index: idx,
-                                ...item
-                            });
+                            const txKey = `${dStr}_${item.id || idx}`;
+                            if (forceRun || !alertedTxKeys.has(txKey)) {
+                                upcomingItems.push({
+                                    txKey,
+                                    dateStr: dStr,
+                                    label: `예정일 ${dStr}`,
+                                    index: idx,
+                                    ...item
+                                });
+                            }
                         }
                     });
                 });
@@ -1304,12 +1369,16 @@
 
                     (txMap[dStr] || []).forEach((item, idx) => {
                         if (item.분류 === '예정 지출' && !item.알림확인) {
-                            upcomingItems.push({
-                                dateStr: dStr,
-                                label,
-                                index: idx,
-                                ...item
-                            });
+                            const txKey = `${dStr}_${item.id || idx}`;
+                            if (forceRun || !alertedTxKeys.has(txKey)) {
+                                upcomingItems.push({
+                                    txKey,
+                                    dateStr: dStr,
+                                    label,
+                                    index: idx,
+                                    ...item
+                                });
+                            }
                         }
                     });
                 }
@@ -1317,7 +1386,8 @@
 
             if (upcomingItems.length === 0) return;
 
-            upcomingAlertShownThisSession = true;
+            upcomingItems.forEach(item => alertedTxKeys.add(item.txKey));
+
             const testBadge = document.getElementById('popupTestBadge');
             const subTitle = document.getElementById('upcomingAlertSubtitle');
             if (isTest) {
@@ -1346,9 +1416,11 @@
                     </button>
                 `;
                 row.querySelector('.confirm-upcoming-btn').addEventListener('click', async () => {
-                    userData.거래내역[item.dateStr][item.index].알림확인 = true;
-                    const userDocRef = doc(db, "users", currentUsername);
-                    await updateDoc(userDocRef, { 거래내역: userData.거래내역 });
+                    if (userData.거래내역[item.dateStr] && userData.거래내역[item.dateStr][item.index]) {
+                        userData.거래내역[item.dateStr][item.index].알림확인 = true;
+                        const userDocRef = doc(db, "users", currentUsername);
+                        await updateDoc(userDocRef, { 거래내역: userData.거래내역 });
+                    }
                     row.remove();
                     if (listEl.children.length === 0) {
                         document.getElementById('upcomingAlertModal').classList.add('hidden');
@@ -1369,22 +1441,25 @@
         });
 
         // ==========================================
-        // 3. 텔레그램 연동 UI & 이벤트
+        // 3. 텔레그램 연동 UI & 이벤트 (한글 필드: 텔레그램)
         // ==========================================
         function updateTelegramUI() {
             const statusEl = document.getElementById('telegramStatusText');
             const btnEl = document.getElementById('telegramLinkBtn');
             const modalEl = document.getElementById('telegramModal');
-            const isTest = Boolean(userData.notificationSettings && userData.notificationSettings.testMode);
+            const isTest = Boolean(userData.알림설정 && userData.알림설정.테스트모드);
             const testSuffix = isTest ? ` <span class="text-purple-600 dark:text-purple-400 font-extrabold">· 🧪 테스트 중</span>` : '';
 
-            if (userData.telegram && userData.telegram.chatId) {
+            const tg = normalizeTelegramData(userData.텔레그램);
+            userData.텔레그램 = tg;
+
+            if (tg && tg.채팅ID) {
                 statusEl.innerHTML = `상태: <span class="font-bold text-green-700 dark:text-green-400">연동 완료 (알림 수신 중)</span>${testSuffix}`;
                 btnEl.innerText = "연동 해제";
                 btnEl.className = "bg-red-500 text-white px-3 py-1.5 rounded-xl hover:bg-red-600 transition text-xs font-bold shadow-2xs whitespace-nowrap";
                 modalEl.classList.add('hidden');
-            } else if (userData.telegram && userData.telegram.authCode) {
-                statusEl.innerHTML = `대기 중 (<span class="font-bold text-orange-600 dark:text-orange-400">${userData.telegram.authCode}</span>)${testSuffix}`;
+            } else if (tg && tg.인증코드) {
+                statusEl.innerHTML = `대기 중 (<span class="font-bold text-orange-600 dark:text-orange-400">${tg.인증코드}</span>)${testSuffix}`;
                 btnEl.innerText = "연동 코드 재확인";
                 btnEl.className = "bg-orange-500 text-white px-3 py-1.5 rounded-xl hover:bg-orange-600 transition text-xs font-bold shadow-2xs whitespace-nowrap";
             } else {
@@ -1399,29 +1474,30 @@
             try {
                 const latestSnap = await getDoc(userDocRef);
                 if (latestSnap.exists()) {
-                    userData.telegram = latestSnap.data().telegram || null;
+                    const latest = latestSnap.data();
+                    userData.텔레그램 = normalizeTelegramData(latest.텔레그램 || latest.telegram);
                 }
             } catch (e) {
                 console.error("연동 상태 확인 실패:", e);
             }
 
-            if (userData.telegram && userData.telegram.chatId) {
+            if (userData.텔레그램 && userData.텔레그램.채팅ID) {
                 if (confirm('텔레그램 연동을 해제하시겠습니까? 알림을 더 이상 받을 수 없습니다.')) {
-                    userData.telegram = null;
-                    await updateDoc(userDocRef, { telegram: null });
+                    userData.텔레그램 = null;
+                    await updateDoc(userDocRef, { 텔레그램: null });
                     updateTelegramUI();
                     alert('텔레그램 연동이 해제되었습니다.');
                 }
                 return;
             }
 
-            if (!userData.telegram || !userData.telegram.authCode || !userData.telegram.authCode.startsWith('코드 ')) {
+            if (!userData.텔레그램 || !userData.텔레그램.인증코드 || !userData.텔레그램.인증코드.startsWith('코드 ')) {
                 const randomCode = '코드 ' + Math.floor(1000 + Math.random() * 9000);
-                userData.telegram = { authCode: randomCode, chatId: null };
-                await setDoc(userDocRef, { telegram: userData.telegram }, { merge: true });
+                userData.텔레그램 = { 인증코드: randomCode, 채팅ID: null };
+                await setDoc(userDocRef, { 텔레그램: userData.텔레그램 }, { merge: true });
             }
 
-            const code = userData.telegram.authCode;
+            const code = userData.텔레그램.인증코드;
             updateTelegramUI();
             document.getElementById('telegramModalCode').innerText = code;
             document.getElementById('telegramModal').classList.remove('hidden');
