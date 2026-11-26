@@ -44,7 +44,6 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
-        /* iOS 드럼 휠 피커 스타일 */
         .wheel-column {
             scroll-snap-type: y mandatory;
             -webkit-overflow-scrolling: touch;
@@ -343,7 +342,6 @@
             </div>
         </div>
 
-        <!-- 저장된 메모 목록 카드 -->
         <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800">
             <input type="text" id="memoSearchInput" placeholder="저장된 메모 검색..."
                 class="w-full mb-3.5 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -358,7 +356,6 @@
     <!-- 탭 4: 보안 · 알림(테스트 모드) · 테마 설정   -->
     <!-- ========================================== -->
     <section id="tab-settings" class="tab-section hidden w-full max-w-5xl space-y-4">
-        <!-- 보안 설정 카드 -->
         <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
             <h2 class="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
                 <span>🔐</span> 보안 및 간편비밀번호 설정
@@ -391,13 +388,11 @@
             </div>
         </div>
 
-        <!-- 알림(테스트 모드 & 시점/시각) 및 화면 테마 설정 -->
         <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-4">
             <h2 class="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
                 <span>🔔</span> 예정 지출 알림 & 화면 테마
             </h2>
 
-            <!-- 🧪 테스트 모드 스위치 -->
             <div class="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
                 <div class="pr-3">
                     <div class="flex items-center gap-1.5">
@@ -414,7 +409,6 @@
                 </label>
             </div>
 
-            <!-- 테스트 모드 ON일 때 표시되는 안내 & 재발송 테스트 버튼 -->
             <div id="testModeInfoBox" class="hidden bg-purple-50/80 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-900/60 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <p class="text-xs text-purple-900 dark:text-purple-200 font-medium leading-relaxed">
                     현재 <strong>테스트 모드</strong>가 켜져 있어 알림 시점·시각 설정이 비활성화되었습니다. 새 예정 지출을 추가하면 즉시 텔레그램으로 1회 전송됩니다.
@@ -424,7 +418,6 @@
                 </button>
             </div>
 
-            <!-- 일반 모드(테스트 모드 OFF)일 때 표시되는 iOS 스타일 알림 시점 & 드럼 휠 알림 시각 설정 -->
             <div id="normalScheduleSettings" class="bg-slate-50 dark:bg-slate-800/70 p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-700 space-y-3">
                 <div class="flex items-center justify-between gap-3">
                     <div>
@@ -448,7 +441,6 @@
                         <p class="text-[11px] text-slate-500 dark:text-slate-400">원하는 알림 발송 시각을 직접 지정합니다</p>
                     </div>
 
-                    <!-- iOS 네이티브 스타일 드럼 휠 팝오버 컨테이너 -->
                     <div id="wheelPickerAnchor" class="relative shrink-0">
                         <button type="button" id="notifyTimePickerBtn"
                             class="bg-slate-200/80 dark:bg-slate-700 hover:bg-slate-300/80 dark:hover:bg-slate-600 active:scale-95 text-slate-900 dark:text-white font-extrabold text-xs sm:text-sm px-4 py-1.5 rounded-xl tracking-tight transition cursor-pointer">
@@ -456,16 +448,10 @@
                         </button>
                         <input type="hidden" id="notifyTimeInput" value="09:00">
 
-                        <!-- 버튼 바로 위에 떠오르는 둥근 iOS 휠 팝오버 -->
                         <div id="iosWheelPopover" class="hidden absolute right-0 bottom-full mb-2.5 w-60 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.16)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.55)] border border-slate-200/70 dark:border-slate-700/80 p-3 z-50">
                             <div class="relative h-[180px] flex items-center justify-center overflow-hidden">
-                                <!-- 중앙 선택 하이라이트 바 -->
                                 <div class="pointer-events-none absolute inset-x-1.5 h-[36px] rounded-xl bg-slate-200/70 dark:bg-slate-700/70"></div>
-
-                                <!-- 시(00~23) 휠 -->
                                 <div id="wheelHourCol" class="wheel-column wheel-mask no-scrollbar h-full w-24 overflow-y-auto z-10 py-[72px]"></div>
-
-                                <!-- 분(00~59) 휠 -->
                                 <div id="wheelMinuteCol" class="wheel-column wheel-mask no-scrollbar h-full w-24 overflow-y-auto z-10 py-[72px]"></div>
                             </div>
                         </div>
@@ -473,7 +459,6 @@
                 </div>
             </div>
 
-            <!-- 웹 팝업 알림 토글 -->
             <div class="flex items-center justify-between py-2 border-b border-slate-100 dark:border-slate-800">
                 <div>
                     <p class="text-sm font-bold text-slate-800 dark:text-slate-100">웹사이트 예정 지출 팝업 알림</p>
@@ -485,7 +470,6 @@
                 </label>
             </div>
 
-            <!-- 다크 모드 토글 -->
             <div class="flex items-center justify-between py-1">
                 <div>
                     <p class="text-sm font-bold text-slate-800 dark:text-slate-100">다크 모드</p>
@@ -498,7 +482,6 @@
             </div>
         </div>
 
-        <!-- 계정 관리 -->
         <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 space-y-3">
             <h2 class="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
                 <span>👤</span> 계정 관리
@@ -535,9 +518,7 @@
         </button>
     </nav>
 
-    <!-- ========================================== -->
-    <!-- 모달 1: 날짜별 상세 내역 시트                -->
-    <!-- ========================================== -->
+    <!-- 모달 1: 날짜별 상세 내역 시트 -->
     <div id="dayModal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white dark:bg-slate-900 w-full max-w-md p-5 sm:p-6 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col max-h-[92vh]">
             <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -600,9 +581,7 @@
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 모달 2: 텔레그램 연동 안내 팝업창            -->
-    <!-- ========================================== -->
+    <!-- 모달 2: 텔레그램 연동 안내 팝업창 -->
     <div id="telegramModal" class="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white dark:bg-slate-900 w-full max-w-sm p-5 sm:p-6 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col">
             <div class="flex justify-between items-center mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
@@ -646,9 +625,7 @@
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 모달 3: 6자리 PIN 설정/변경 모달            -->
-    <!-- ========================================== -->
+    <!-- 모달 3: 6자리 PIN 설정/변경 모달 -->
     <div id="pinSetupModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white dark:bg-slate-900 w-full max-w-sm p-6 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800 flex flex-col items-center">
             <div class="w-full flex justify-between items-center mb-2">
@@ -672,9 +649,7 @@
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 모달 4: 계정 비밀번호 변경 시트              -->
-    <!-- ========================================== -->
+    <!-- 모달 4: 계정 비밀번호 변경 시트 -->
     <div id="passwordChangeModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white dark:bg-slate-900 w-full max-w-sm p-6 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800">
             <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-100 dark:border-slate-800">
@@ -701,9 +676,7 @@
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 모달 5: 회원탈퇴 비밀번호 확인 모달          -->
-    <!-- ========================================== -->
+    <!-- 모달 5: 회원탈퇴 비밀번호 확인 모달 -->
     <div id="withdrawModal" class="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center hidden z-50 p-4">
         <div class="bg-white dark:bg-slate-900 w-full max-w-sm p-6 rounded-3xl shadow-2xl border border-slate-100 dark:border-slate-800">
             <div class="flex justify-between items-center mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
@@ -739,7 +712,6 @@
 
         const BOT_SERVER_URL = "https://telegram-wallet-bot-ht1m.onrender.com";
 
-        // 넷리파이 배지 제거
         window.addEventListener('DOMContentLoaded', () => {
             const removeBadge = () => {
                 document.querySelectorAll('iframe, div, a').forEach(el => {
@@ -783,12 +755,16 @@
         let unsubscribeUserDoc = null;
         let alertedTxKeys = new Set();
         let lastKnownTestMode = false;
+        let hasMigratedLegacyFields = false;
 
         // ==========================================
-        // 한글 스키마 정규화 유틸리티
+        // 한글 스키마 병합 및 정규화 유틸리티
         // ==========================================
-        function normalizeNotificationSettings(rawSettings) {
-            const src = rawSettings || {};
+        function mergeNotificationSettings(primarySettings, legacySettings) {
+            const p = (primarySettings && typeof primarySettings === 'object') ? primarySettings : {};
+            const l = (legacySettings && typeof legacySettings === 'object') ? legacySettings : {};
+            const src = { ...l, ...p };
+
             const 테스트모드 = Boolean(src.테스트모드 ?? src.testMode ?? false);
             const rawDays = src.알림시점일수 ?? src.daysBefore;
             const 알림시점일수 = Number(rawDays) === 0 ? 0 : 1;
@@ -810,10 +786,11 @@
             return { 테스트모드, 알림시점일수, 알림시각, 알림시, 알림분 };
         }
 
-        function normalizeTelegramData(rawTg) {
-            if (!rawTg || typeof rawTg !== 'object') return null;
-            const 인증코드 = rawTg.인증코드 ?? rawTg.authCode ?? null;
-            const 채팅ID = rawTg.채팅ID ?? rawTg.chatId ?? null;
+        function mergeTelegramData(primaryTg, legacyTg) {
+            const p = (primaryTg && typeof primaryTg === 'object') ? primaryTg : {};
+            const l = (legacyTg && typeof legacyTg === 'object') ? legacyTg : {};
+            const 인증코드 = p.인증코드 ?? p.authCode ?? l.인증코드 ?? l.authCode ?? null;
+            const 채팅ID = p.채팅ID ?? p.chatId ?? l.채팅ID ?? l.chatId ?? null;
             if (!인증코드 && !채팅ID) return null;
             return { 인증코드, 채팅ID };
         }
@@ -907,7 +884,6 @@
             localStorage.setItem('mg_auto_lock', e.target.checked ? 'true' : 'false');
         });
 
-        // 테스트 모드 & 알림 시점/시각 UI 동기화 및 Firestore 실시간 저장
         const testModeToggle = document.getElementById('testModeToggle');
         const notifyDaysBeforeSelect = document.getElementById('notifyDaysBeforeSelect');
         const notifyTimeInput = document.getElementById('notifyTimeInput');
@@ -1022,14 +998,13 @@
         });
 
         function applyNotificationSettingsUI() {
-            const settings = normalizeNotificationSettings(userData.알림설정);
+            const settings = mergeNotificationSettings(userData.알림설정, null);
             userData.알림설정 = settings;
             const isTest = settings.테스트모드;
 
             testModeToggle.checked = isTest;
             notifyDaysBeforeSelect.value = settings.알림시점일수 === 0 ? "0" : "1";
 
-            // 휠 피커를 직접 조작 중인 경우에는 스크롤 위치를 강제로 덮어쓰지 않음
             if (iosWheelPopover.classList.contains('hidden')) {
                 notifyTimeInput.value = settings.알림시각;
                 notifyTimePickerBtn.innerText = settings.알림시각;
@@ -1072,10 +1047,7 @@
 
             try {
                 const userDocRef = doc(db, "users", currentUsername);
-                await setDoc(userDocRef, {
-                    알림설정: newSettings,
-                    notificationSettings: deleteField()
-                }, { merge: true });
+                await setDoc(userDocRef, { 알림설정: newSettings }, { merge: true });
                 fetch(`${BOT_SERVER_URL}/sync`, { method: 'POST' }).catch(() => {});
 
                 if (triggerImmediatePopup && newSettings.테스트모드) {
@@ -1091,7 +1063,6 @@
         testModeToggle.addEventListener('change', () => saveNotificationSettings(true));
         notifyDaysBeforeSelect.addEventListener('change', () => saveNotificationSettings(false));
 
-        // 테스트 모드에서 '미확인 내역 재발송 테스트' 버튼 클릭 시
         document.getElementById('retestTelegramBtn').addEventListener('click', async () => {
             if (!currentUsername) return;
             const txMap = userData.거래내역 || {};
@@ -1121,7 +1092,6 @@
             }
         });
 
-        // 앱 잠금 화면
         let lockEnteredPin = "";
         function lockApp() {
             const pinData = getSavedPinData();
@@ -1177,7 +1147,6 @@
             location.href = 'index.html';
         });
 
-        // 4단 탭 전환
         function switchTab(tabName) {
             document.querySelectorAll('.tab-section').forEach(sec => sec.classList.add('hidden'));
             document.getElementById(`tab-${tabName}`).classList.remove('hidden');
@@ -1271,8 +1240,8 @@
             unsubscribeUserDoc = onSnapshot(userDocRef, async (docSnap) => {
                 if (docSnap.exists()) {
                     const raw = docSnap.data();
-                    const normalizedSettings = normalizeNotificationSettings(raw.알림설정 || raw.notificationSettings);
-                    const normalizedTelegram = normalizeTelegramData(raw.텔레그램 || raw.telegram);
+                    const normalizedSettings = mergeNotificationSettings(raw.알림설정, raw.notificationSettings);
+                    const normalizedTelegram = mergeTelegramData(raw.텔레그램, raw.telegram);
 
                     userData = {
                         ...raw,
@@ -1282,16 +1251,10 @@
                         알림설정: normalizedSettings
                     };
 
-                    // 최상위 영문 필드(notificationSettings, telegram) 또는 내부 영문 키가 남아 있으면 한글 필드로 즉시 마이그레이션
-                    const rawSettingsObj = raw.알림설정;
-                    const rawTgObj = raw.텔레그램;
-                    const hasLegacySettingsKeys = rawSettingsObj && typeof rawSettingsObj === 'object' &&
-                        ('testMode' in rawSettingsObj || 'daysBefore' in rawSettingsObj || 'notifyHour' in rawSettingsObj || 'notifyTime' in rawSettingsObj || !('테스트모드' in rawSettingsObj) || !('알림시각' in rawSettingsObj));
-                    const hasLegacyTgKeys = rawTgObj && typeof rawTgObj === 'object' &&
-                        ('authCode' in rawTgObj || 'chatId' in rawTgObj);
-
-                    const hasLegacyFields = ('notificationSettings' in raw) || ('telegram' in raw) || !rawSettingsObj || hasLegacySettingsKeys || hasLegacyTgKeys;
-                    if (hasLegacyFields) {
+                    // 세션당 1회만 구버전 영문 필드를 한글 필드로 정리 (다른 기기와 무한 삭제 루프 방지)
+                    const hasLegacyFields = ('notificationSettings' in raw) || ('telegram' in raw) || !raw.알림설정;
+                    if (hasLegacyFields && !hasMigratedLegacyFields) {
+                        hasMigratedLegacyFields = true;
                         const migrationPayload = {
                             알림설정: normalizedSettings,
                             텔레그램: normalizedTelegram
@@ -1299,6 +1262,7 @@
                         if ('notificationSettings' in raw) migrationPayload.notificationSettings = deleteField();
                         if ('telegram' in raw) migrationPayload.telegram = deleteField();
                         updateDoc(userDocRef, migrationPayload).catch((err) => {
+                            hasMigratedLegacyFields = false;
                             console.error("한글 필드 마이그레이션 실패:", err);
                         });
                     }
@@ -1312,7 +1276,6 @@
                     await setDoc(userDocRef, userData, { merge: true });
                 }
 
-                // 다른 기기(iOS 앱 등)에서 테스트모드가 새로 켜졌을 때 즉시 팝업 재트리거
                 const currentTestMode = Boolean(userData.알림설정?.테스트모드);
                 if (currentTestMode && !lastKnownTestMode) {
                     alertedTxKeys.clear();
@@ -1348,7 +1311,7 @@
             const todayStr = getFormattedDate(today);
             if (!forceRun && sessionStorage.getItem(`mg_dismiss_alert_${todayStr}`) === 'true') return;
 
-            const settings = normalizeNotificationSettings(userData.알림설정);
+            const settings = mergeNotificationSettings(userData.알림설정, null);
             const isTest = settings.테스트모드;
             const daysBefore = settings.알림시점일수;
 
@@ -1462,7 +1425,7 @@
             const isTest = Boolean(userData.알림설정 && userData.알림설정.테스트모드);
             const testSuffix = isTest ? ` <span class="text-purple-600 dark:text-purple-400 font-extrabold">· 🧪 테스트 중</span>` : '';
 
-            const tg = normalizeTelegramData(userData.텔레그램);
+            const tg = mergeTelegramData(userData.텔레그램, null);
             userData.텔레그램 = tg;
 
             if (tg && tg.채팅ID) {
@@ -1482,12 +1445,15 @@
         }
 
         document.getElementById('telegramLinkBtn').addEventListener('click', async () => {
+            // Render 무료 서버 절전 해제를 위해 미리 핑 전송
+            fetch(`${BOT_SERVER_URL}/`).catch(() => {});
+
             const userDocRef = doc(db, "users", currentUsername);
             try {
                 const latestSnap = await getDoc(userDocRef);
                 if (latestSnap.exists()) {
                     const latest = latestSnap.data();
-                    userData.텔레그램 = normalizeTelegramData(latest.텔레그램 || latest.telegram);
+                    userData.텔레그램 = mergeTelegramData(latest.텔레그램, latest.telegram);
                 }
             } catch (e) {
                 console.error("연동 상태 확인 실패:", e);
@@ -2069,7 +2035,7 @@
         document.getElementById('globalCategoryFilter').addEventListener('change', renderGlobalSearchResults);
 
         // ==========================================
-        // 6. 타임스탬프 메모 로직 (iOS 앱 UI/UX 동기화)
+        // 6. 타임스탬프 메모 로직
         // ==========================================
         const memoInputEl = document.getElementById('memoInput');
         const memoCharCountEl = document.getElementById('memoCharCount');
@@ -2360,7 +2326,6 @@
             }
         });
 
-        // 회원탈퇴 모달 열기 / 닫기 / 즉시 탈퇴 처리
         const withdrawModal = document.getElementById('withdrawModal');
         const withdrawPasswordInput = document.getElementById('withdrawPasswordInput');
         const withdrawErrorMsg = document.getElementById('withdrawErrorMsg');
