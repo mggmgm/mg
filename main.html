@@ -364,16 +364,16 @@
                 <span>🔐</span> 보안 및 간편비밀번호 설정
             </h2>
 
-            <div class="flex items-center justify-between gap-3 py-2 border-b border-slate-100 dark:border-slate-800">
+            <div class="flex items-center justify-between gap-2 sm:gap-3 py-2 border-b border-slate-100 dark:border-slate-800">
                 <div class="min-w-0">
                     <p class="text-sm font-bold text-slate-800 dark:text-slate-100">6자리 간편비밀번호 (PIN)</p>
-                    <p id="pinSettingStatusText" class="text-xs text-slate-500 dark:text-slate-400">확인 중...</p>
+                    <p id="pinSettingStatusText" class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">확인 중...</p>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <button id="openPinSetupBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap">
+                    <button id="openPinSetupBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap">
                         설정 / 변경
                     </button>
-                    <button id="removePinBtn" class="hidden bg-slate-100 dark:bg-slate-800 hover:bg-red-50 text-red-600 px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap">
+                    <button id="removePinBtn" class="hidden bg-slate-100 dark:bg-slate-800 hover:bg-red-50 text-red-600 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap">
                         해제
                     </button>
                 </div>
@@ -1320,11 +1320,11 @@
             const headerLock = document.getElementById('headerLockBtn');
 
             if (isRegistered) {
-                statusText.innerHTML = `<span class="text-green-600 dark:text-green-400 font-bold">등록 완료</span> (앱·웹 6자리 간편비밀번호 동기화 중)`;
+                statusText.innerHTML = `<span class="text-green-600 dark:text-green-400 font-bold">등록 완료</span> <span class="sm:hidden">(앱·웹 동기화 중)</span><span class="hidden sm:inline">(앱·웹 6자리 간편비밀번호 동기화 중)</span>`;
                 removeBtn.classList.remove('hidden');
                 headerLock.classList.remove('hidden');
             } else {
-                statusText.innerText = "미등록 (설정 시 앱·웹에서 6자리 숫자로 빠른 로그인 및 잠금 가능)";
+                statusText.innerHTML = `<span class="sm:hidden">미등록 (앱·웹 6자리 PIN 로그인)</span><span class="hidden sm:inline">미등록 (설정 시 앱·웹에서 6자리 숫자로 빠른 로그인 및 잠금 가능)</span>`;
                 removeBtn.classList.add('hidden');
                 headerLock.classList.add('hidden');
             }
